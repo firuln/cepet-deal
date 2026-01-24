@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, SlidersHorizontal, Grid, List, ChevronDown, X } from 'lucide-react'
 import { Button, Badge } from '@/components/ui'
 import { CarCard } from '@/components/features'
@@ -12,86 +12,39 @@ import {
     MILEAGE_RANGES
 } from '@/lib/constants'
 
-// Sample data - will be replaced with API data
-const sampleListings = [
-    {
-        id: '1',
-        title: 'Toyota Avanza 1.5 G CVT',
-        price: 250000000,
-        year: 2023,
-        mileage: 15000,
-        location: 'Jakarta Selatan',
-        image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=500',
-        condition: 'USED' as const,
-        transmission: 'CVT',
-        fuelType: 'Bensin',
-    },
-    {
-        id: '2',
-        title: 'Honda HR-V 1.5 SE CVT',
-        price: 380000000,
-        year: 2024,
-        mileage: 5000,
-        location: 'Surabaya',
-        image: 'https://images.unsplash.com/photo-1568844293986-8c10f13f0969?w=500',
-        condition: 'USED' as const,
-        transmission: 'CVT',
-        fuelType: 'Bensin',
-    },
-    {
-        id: '3',
-        title: 'Mitsubishi Xpander Ultimate AT',
-        price: 320000000,
-        year: 2023,
-        mileage: 8000,
-        location: 'Bandung',
-        image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500',
-        condition: 'USED' as const,
-        transmission: 'Automatic',
-        fuelType: 'Bensin',
-    },
-    {
-        id: '4',
-        title: 'Daihatsu Xenia 1.3 R MT',
-        price: 210000000,
-        year: 2023,
-        mileage: 20000,
-        location: 'Yogyakarta',
-        image: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=500',
-        condition: 'USED' as const,
-        transmission: 'Manual',
-        fuelType: 'Bensin',
-    },
-    {
-        id: '5',
-        title: 'Toyota Fortuner 2.4 VRZ AT',
-        price: 520000000,
-        year: 2022,
-        mileage: 35000,
-        location: 'Medan',
-        image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=500',
-        condition: 'USED' as const,
-        transmission: 'Automatic',
-        fuelType: 'Diesel',
-    },
-    {
-        id: '6',
-        title: 'Honda Brio RS CVT',
-        price: 195000000,
-        year: 2023,
-        mileage: 12000,
-        location: 'Semarang',
-        image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=500',
-        condition: 'USED' as const,
-        transmission: 'CVT',
-        fuelType: 'Bensin',
-    },
-]
+interface Listing {
+    id: string
+    title: string
+    slug: string
+    price: number
+    year: number
+    mileage: number
+    location: string
+    images: string[]
+    condition: 'NEW' | 'USED'
+    transmission: string
+    fuelType: string
+    bodyType: string
+    brand: {
+        id: string
+        name: string
+        slug: string
+    }
+    model: {
+        id: string
+        name: string
+        slug: string
+    }
+}
 
 export default function MobilBekasPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [showFilters, setShowFilters] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
+    const [listings, setListings] = useState<Listing[]>([])
+    const [loading, setLoading] = useState(true)
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
 
     // Filter states
     const [selectedBrand, setSelectedBrand] = useState('')
@@ -99,6 +52,8 @@ export default function MobilBekasPage() {
     const [selectedFuelType, setSelectedFuelType] = useState('')
     const [selectedPriceRange, setSelectedPriceRange] = useState('')
     const [selectedMileageRange, setSelectedMileageRange] = useState('')
+    const [selectedBodyType, setSelectedBodyType] = useState('')
+    const [sortBy, setSortBy] = useState('createdAt')
 
     const activeFilters = [
         selectedBrand,
@@ -106,6 +61,7 @@ export default function MobilBekasPage() {
         selectedFuelType,
         selectedPriceRange,
         selectedMileageRange,
+        selectedBodyType,
     ].filter(Boolean)
 
     const clearAllFilters = () => {
@@ -114,6 +70,66 @@ export default function MobilBekasPage() {
         setSelectedFuelType('')
         setSelectedPriceRange('')
         setSelectedMileageRange('')
+        setSelectedBodyType('')
+        setSearchQuery('')
+        setPage(1)
+    }
+
+    useEffect(() => {
+        fetchListings()
+    }, [page, sortBy])
+
+    const fetchListings = async () => {
+        setLoading(true)
+        try {
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: '12',
+                condition: 'USED',
+                sort: sortBy,
+            })
+
+            if (searchQuery) params.append('search', searchQuery)
+            if (selectedBrand) params.append('brand', selectedBrand)
+            if (selectedTransmission) params.append('transmission', selectedTransmission)
+            if (selectedFuelType) params.append('fuelType', selectedFuelType)
+            if (selectedBodyType) params.append('bodyType', selectedBodyType)
+            if (selectedPriceRange) {
+                const [min, max] = selectedPriceRange.split('-').map(s => s.replace(/[^0-9]/g, ''))
+                if (min) params.append('minPrice', min)
+                if (max) params.append('maxPrice', max)
+            }
+            if (selectedMileageRange) {
+                const [min, max] = selectedMileageRange.split('-').map(s => s.replace(/[^0-9]/g, ''))
+                if (min) params.append('minMileage', min)
+                if (max) params.append('maxMileage', max)
+            }
+
+            const res = await fetch(`/api/listings/public?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setListings(data.listings || [])
+                setTotalPages(data.pagination?.totalPages || 1)
+            }
+        } catch (error) {
+            console.error('Error fetching listings:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleFilterApply = () => {
+        setPage(1)
+        fetchListings()
+    }
+
+    const removeFilter = (filter: string) => {
+        if (filter === selectedBrand) setSelectedBrand('')
+        if (filter === selectedTransmission) setSelectedTransmission('')
+        if (filter === selectedFuelType) setSelectedFuelType('')
+        if (filter === selectedPriceRange) setSelectedPriceRange('')
+        if (filter === selectedMileageRange) setSelectedMileageRange('')
+        if (filter === selectedBodyType) setSelectedBodyType('')
     }
 
     return (
@@ -123,7 +139,7 @@ export default function MobilBekasPage() {
                 <div className="container py-8">
                     <h1 className="text-3xl font-bold text-secondary">Mobil Bekas</h1>
                     <p className="text-gray-500 mt-2">
-                        Temukan {sampleListings.length}+ mobil bekas berkualitas dengan harga terbaik
+                        {loading ? 'Memuat...' : `Temukan ${listings.length}+ mobil bekas berkualitas dengan harga terbaik`}
                     </p>
                 </div>
             </div>
@@ -153,6 +169,7 @@ export default function MobilBekasPage() {
                                     placeholder="Cari mobil..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleFilterApply()}
                                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 />
                             </div>
@@ -191,6 +208,23 @@ export default function MobilBekasPage() {
                                 </select>
                             </div>
 
+                            {/* Body Type Filter */}
+                            <div className="mb-5">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Tipe Body
+                                </label>
+                                <select
+                                    value={selectedBodyType}
+                                    onChange={(e) => setSelectedBodyType(e.target.value)}
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                >
+                                    <option value="">Semua Tipe</option>
+                                    {Object.entries(BODY_TYPES).map(([key, label]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* Price Range Filter */}
                             <div className="mb-5">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -201,8 +235,9 @@ export default function MobilBekasPage() {
                                     onChange={(e) => setSelectedPriceRange(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 >
+                                    <option value="">Semua Harga</option>
                                     {PRICE_RANGES.map((range, index) => (
-                                        <option key={index} value={range.label}>{range.label}</option>
+                                        <option key={index} value={range.value}>{range.label}</option>
                                     ))}
                                 </select>
                             </div>
@@ -217,13 +252,14 @@ export default function MobilBekasPage() {
                                     onChange={(e) => setSelectedMileageRange(e.target.value)}
                                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                                 >
+                                    <option value="">Semua Kilometer</option>
                                     {MILEAGE_RANGES.map((range, index) => (
-                                        <option key={index} value={range.label}>{range.label}</option>
+                                        <option key={index} value={range.value}>{range.label}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            <Button className="w-full">
+                            <Button className="w-full" onClick={handleFilterApply}>
                                 Terapkan Filter
                             </Button>
                         </div>
@@ -248,11 +284,15 @@ export default function MobilBekasPage() {
 
                                 {/* Sort & View */}
                                 <div className="flex items-center gap-3 w-full sm:w-auto">
-                                    <select className="flex-1 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                                        <option>Terbaru</option>
-                                        <option>Harga Terendah</option>
-                                        <option>Harga Tertinggi</option>
-                                        <option>Kilometer Terendah</option>
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        className="flex-1 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    >
+                                        <option value="createdAt">Terbaru</option>
+                                        <option value="price_asc">Harga Terendah</option>
+                                        <option value="price_desc">Harga Tertinggi</option>
+                                        <option value="mileage_asc">Kilometer Terendah</option>
                                     </select>
 
                                     <div className="flex border border-gray-300 rounded-lg overflow-hidden">
@@ -273,7 +313,9 @@ export default function MobilBekasPage() {
 
                                 {/* Results count */}
                                 <p className="text-sm text-gray-500">
-                                    Menampilkan <span className="font-medium text-secondary">{sampleListings.length}</span> mobil
+                                    {!loading && (
+                                        <>Menampilkan <span className="font-medium text-secondary">{listings.length}</span> mobil</>
+                                    )}
                                 </p>
                             </div>
 
@@ -286,7 +328,10 @@ export default function MobilBekasPage() {
                                             className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
                                         >
                                             {filter}
-                                            <button className="hover:bg-primary/20 rounded-full p-0.5">
+                                            <button
+                                                onClick={() => removeFilter(filter)}
+                                                className="hover:bg-primary/20 rounded-full p-0.5"
+                                            >
                                                 <X className="w-3 h-3" />
                                             </button>
                                         </span>
@@ -295,35 +340,127 @@ export default function MobilBekasPage() {
                             )}
                         </div>
 
-                        {/* Car Grid */}
-                        <div className={`grid gap-6 ${viewMode === 'grid'
-                                ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
-                                : 'grid-cols-1'
-                            }`}>
-                            {sampleListings.map((listing) => (
-                                <CarCard
-                                    key={listing.id}
-                                    {...listing}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Pagination */}
-                        <div className="flex justify-center mt-8">
-                            <div className="flex items-center gap-2">
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
-                                    Sebelumnya
-                                </button>
-                                <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm">1</button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">2</button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">3</button>
-                                <span className="px-2 text-gray-400">...</span>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">10</button>
-                                <button className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
-                                    Selanjutnya
-                                </button>
+                        {/* Mobile Filters */}
+                        {showFilters && (
+                            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 lg:hidden">
+                                <div className="space-y-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Cari mobil..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm"
+                                    />
+                                    <select
+                                        value={selectedTransmission}
+                                        onChange={(e) => setSelectedTransmission(e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
+                                    >
+                                        <option value="">Semua Transmisi</option>
+                                        {Object.entries(TRANSMISSIONS).map(([key, label]) => (
+                                            <option key={key} value={key}>{label}</option>
+                                        ))}
+                                    </select>
+                                    <Button className="w-full" onClick={() => { handleFilterApply(); setShowFilters(false); }}>
+                                        Terapkan Filter
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Loading State */}
+                        {loading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {[1, 2, 3, 4, 5, 6].map((i) => (
+                                    <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                        <div className="aspect-[4/3] bg-gray-200 animate-pulse" />
+                                        <div className="p-4 space-y-3">
+                                            <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                                            <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : listings.length === 0 ? (
+                            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                                <p className="text-gray-500">Tidak ada mobil bekas yang ditemukan</p>
+                                <Button onClick={clearAllFilters} className="mt-4">
+                                    Hapus Filter
+                                </Button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Car Grid */}
+                                <div className={`grid gap-6 ${viewMode === 'grid'
+                                        ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+                                        : 'grid-cols-1'
+                                    }`}>
+                                    {listings.map((listing) => (
+                                        <CarCard
+                                            key={listing.id}
+                                            id={listing.id}
+                                            title={listing.title}
+                                            slug={listing.slug}
+                                            price={listing.price}
+                                            year={listing.year}
+                                            mileage={listing.mileage}
+                                            location={listing.location}
+                                            image={listing.images[0] || '/placeholder-car.png'}
+                                            condition={listing.condition}
+                                            transmission={listing.transmission}
+                                            fuelType={listing.fuelType}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center mt-8">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                                                disabled={page === 1}
+                                            >
+                                                Sebelumnya
+                                            </button>
+                                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                const pageNum = i + 1
+                                                return (
+                                                    <button
+                                                        key={pageNum}
+                                                        onClick={() => setPage(pageNum)}
+                                                        className={`px-4 py-2 rounded-lg text-sm ${
+                                                            page === pageNum
+                                                                ? 'bg-primary text-white'
+                                                                : 'border border-gray-300 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                )
+                                            })}
+                                            {totalPages > 5 && <span className="px-2 text-gray-400">...</span>}
+                                            {totalPages > 5 && (
+                                                <button
+                                                    onClick={() => setPage(totalPages)}
+                                                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                                                >
+                                                    {totalPages}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                                                disabled={page === totalPages}
+                                            >
+                                                Selanjutnya
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

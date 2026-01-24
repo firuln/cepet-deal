@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, notFound } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -17,22 +17,60 @@ import {
     User,
     Shield,
     CheckCircle,
-    AlertTriangle,
-    Loader2,
+    Car,
+    Home,
+    ChevronRight,
+    Eye,
+    Clock,
+    Star,
+    Zap,
+    Users,
+    Palette,
+    FileText,
+    TrendingDown,
+    Sparkles,
 } from 'lucide-react'
-import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, Skeleton } from '@/components/ui'
-import { CarCard } from '@/components/features'
+import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer } from '@/components/ui'
+import { CarCard, CarFeatures } from '@/components/features'
 import { formatCurrency, formatNumber } from '@/lib/utils'
-import { TRANSMISSIONS, FUEL_TYPES, BODY_TYPES } from '@/lib/constants'
 
-interface Seller {
+interface CarFeature {
     id: string
+    category: string
     name: string
-    type: 'DEALER' | 'PERSONAL'
-    verified: boolean
-    phone: string | null
-    avatar: string | null
-    memberSince: string
+}
+
+interface ListingDetail {
+    id: string
+    title: string
+    slug: string
+    brand: string
+    model: string
+    year: number
+    price: number
+    condition: 'NEW' | 'USED'
+    transmission: string
+    fuelType: string
+    bodyType: string
+    mileage: number
+    color: string
+    engineSize?: number
+    description: string
+    location: string
+    images: string[]
+    youtubeUrl?: string
+    views: number
+    createdAt: string
+    features: CarFeature[]
+    seller: {
+        id: string
+        name: string
+        type: 'DEALER' | 'PERSONAL'
+        verified: boolean
+        phone?: string
+        avatar?: string
+        memberSince: string
+    }
 }
 
 interface RelatedCar {
@@ -49,436 +87,391 @@ interface RelatedCar {
     fuelType: string
 }
 
-interface CarDetail {
-    id: string
-    title: string
-    slug: string
-    brand: string
-    model: string
-    year: number
-    price: number
-    negotiable: boolean
-    condition: 'NEW' | 'USED'
-    transmission: string
-    fuelType: string
-    bodyType: string
-    mileage: number
-    color: string
-    engineSize: number | null
-    description: string
-    location: string
-    images: string[]
-    youtubeUrl: string | null
-    views: number
-    createdAt: string
-    features: Record<string, string[]>
-    seller: Seller
-    relatedCars: RelatedCar[]
+const TRANSMISSION_LABELS: Record<string, string> = {
+    MANUAL: 'Manual',
+    AUTOMATIC: 'Automatic',
+    CVT: 'CVT',
 }
 
-// Sample data fallback for when no listings exist yet
-const sampleCarDetail: CarDetail = {
-    id: '1',
-    title: 'Honda HR-V 1.5 SE CVT 2023',
-    slug: 'honda-hrv-15-se-cvt-2023',
-    brand: 'Honda',
-    model: 'HR-V',
-    year: 2023,
-    price: 380000000,
-    negotiable: true,
-    condition: 'USED',
-    transmission: 'CVT',
-    fuelType: 'PETROL',
-    bodyType: 'SUV',
-    mileage: 15000,
-    color: 'Abu-abu Metalik',
-    engineSize: 1498,
-    description: `Honda HR-V 1.5 SE CVT 2023 dalam kondisi sangat terawat. Mobil ini merupakan tangan pertama dari baru dengan service record lengkap di bengkel resmi Honda.
-
-Kondisi:
-• Mesin halus, tidak ada rembes
-• Transmisi CVT responsif
-• Kaki-kaki empuk, tidak ada bunyi
-• Interior bersih, tidak ada sobek
-• Pajak hidup sampai bulan 10/2024
-• STNK & BPKB lengkap
-
-Alasan jual: upgrade ke mobil yang lebih besar.
-
-Harga masih bisa nego tipis untuk pembeli serius. Bisa bantu proses kredit dengan berbagai leasing.`,
-    location: 'Jakarta Selatan',
-    images: [
-        'https://images.unsplash.com/photo-1568844293986-8c10f13f0969?w=800',
-        'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800',
-        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800',
-        'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800',
-    ],
-    youtubeUrl: null,
-    views: 856,
-    createdAt: '2024-01-10',
-    features: {
-        'Eksterior': ['LED Headlamp', 'DRL', 'Chrome Grille', 'Alloy Wheels 17"', 'Rear Spoiler'],
-        'Interior': ['Fabric Seat', 'Automatic AC', 'Push Start Button', 'Multi-info Display', 'Cruise Control'],
-        'Keselamatan': ['Dual Airbag', 'ABS + EBD', 'Hill Start Assist', 'Rear Camera', 'Parking Sensor'],
-        'Hiburan': ['8 inch Touchscreen', 'Bluetooth', 'USB Port', 'Steering Audio Control'],
-    },
-    seller: {
-        id: '2',
-        name: 'Andi Pratama',
-        type: 'PERSONAL',
-        verified: false,
-        phone: '081298765432',
-        avatar: null,
-        memberSince: '2023',
-    },
-    relatedCars: [
-        {
-            id: '2',
-            title: 'Honda HR-V 1.8 Prestige 2022',
-            slug: 'honda-hrv-18-prestige-2022',
-            price: 350000000,
-            year: 2022,
-            mileage: 25000,
-            location: 'Jakarta Barat',
-            image: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=500',
-            condition: 'USED',
-            transmission: 'CVT',
-            fuelType: 'PETROL',
-        },
-        {
-            id: '3',
-            title: 'Toyota C-HR Hybrid 2023',
-            slug: 'toyota-chr-hybrid-2023',
-            price: 420000000,
-            year: 2023,
-            mileage: 8000,
-            location: 'Tangerang',
-            image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=500',
-            condition: 'USED',
-            transmission: 'CVT',
-            fuelType: 'HYBRID',
-        },
-        {
-            id: '4',
-            title: 'Hyundai Creta Prime 2023',
-            slug: 'hyundai-creta-prime-2023',
-            price: 360000000,
-            year: 2023,
-            mileage: 12000,
-            location: 'Depok',
-            image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=500',
-            condition: 'USED',
-            transmission: 'AUTOMATIC',
-            fuelType: 'PETROL',
-        },
-    ]
+const FUEL_TYPE_LABELS: Record<string, string> = {
+    PETROL: 'Bensin',
+    DIESEL: 'Diesel',
+    HYBRID: 'Hybrid',
+    ELECTRIC: 'Listrik',
 }
 
-export default function UsedCarDetailPage() {
+const BODY_TYPE_LABELS: Record<string, string> = {
+    SEDAN: 'Sedan',
+    SUV: 'SUV',
+    MPV: 'MPV',
+    HATCHBACK: 'Hatchback',
+    COUPE: 'Coupe',
+    PICKUP: 'Pickup',
+    VAN: 'Van',
+}
+
+export default function MobilBekasDetailPage() {
     const params = useParams()
+    const router = useRouter()
     const slug = params.slug as string
-
-    const [carDetail, setCarDetail] = useState<CarDetail | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+    const [listing, setListing] = useState<ListingDetail | null>(null)
+    const [relatedCars, setRelatedCars] = useState<RelatedCar[]>([])
     const [isFavorited, setIsFavorited] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        async function fetchListing() {
+        const fetchListing = async () => {
             try {
-                setIsLoading(true)
+                setLoading(true)
                 const res = await fetch(`/api/listings/${slug}`)
 
-                if (res.status === 404) {
-                    // Use sample data for demo purposes
-                    setCarDetail(sampleCarDetail)
-                    setIsLoading(false)
-                    return
-                }
-
                 if (!res.ok) {
-                    throw new Error('Failed to fetch listing')
+                    throw new Error('Listing not found')
                 }
 
                 const data = await res.json()
-                setCarDetail(data)
+
+                // If this is a NEW car listing, redirect to the correct page
+                if (data.condition === 'NEW') {
+                    router.replace(`/mobil-baru/${slug}`)
+                    return
+                }
+
+                // Verify this is a USED car listing
+                if (data.condition !== 'USED') {
+                    throw new Error('This is not a used car listing')
+                }
+
+                // Extract related cars from response
+                const relatedCarsData = data.relatedCars || []
+                delete data.relatedCars
+
+                setListing(data)
+                setRelatedCars(relatedCarsData)
             } catch (err) {
                 console.error('Error fetching listing:', err)
-                // Fallback to sample data
-                setCarDetail(sampleCarDetail)
+                setError(err instanceof Error ? err.message : 'Failed to load listing')
             } finally {
-                setIsLoading(false)
+                setLoading(false)
             }
         }
 
         if (slug) {
             fetchListing()
         }
-    }, [slug])
+    }, [slug, router])
 
     const handleWhatsApp = () => {
-        if (!carDetail?.seller.phone) return
-        const message = encodeURIComponent(`Halo, saya tertarik dengan ${carDetail.title} (${carDetail.mileage.toLocaleString()} km) yang dijual di CepetDeal. Apakah masih tersedia?`)
-        window.open(`https://wa.me/${carDetail.seller.phone}?text=${message}`, '_blank')
+        if (!listing?.seller.phone) return
+        const message = encodeURIComponent(`Halo, saya tertarik dengan ${listing.title} yang dijual di CepetDeal. Apakah masih tersedia?`)
+        window.open(`https://wa.me/${listing.seller.phone}?text=${message}`, '_blank')
     }
 
-    const getTransmissionLabel = (value: string) => {
-        return TRANSMISSIONS[value as keyof typeof TRANSMISSIONS] || value
-    }
-
-    const getFuelTypeLabel = (value: string) => {
-        return FUEL_TYPES[value as keyof typeof FUEL_TYPES] || value
-    }
-
-    // Loading State
-    if (isLoading) {
+    if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50">
-                <div className="bg-white border-b border-gray-200">
-                    <div className="container py-4">
-                        <Skeleton className="h-5 w-64" />
-                    </div>
-                </div>
-                <div className="container py-6">
-                    <div className="flex flex-col lg:flex-row gap-8">
-                        <div className="flex-1">
-                            <Skeleton className="aspect-[4/3] rounded-xl mb-6" />
-                            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                                <Skeleton className="h-6 w-20 mb-3" />
-                                <Skeleton className="h-8 w-full mb-2" />
-                                <Skeleton className="h-10 w-48 mb-4" />
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4">
-                                    {[1, 2, 3, 4].map(i => (
-                                        <Skeleton key={i} className="h-12" />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <aside className="lg:w-80">
-                            <Skeleton className="h-64 rounded-xl" />
-                        </aside>
-                    </div>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-t-primary border-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-gray-500">Memuat data...</p>
                 </div>
             </div>
         )
     }
 
-    if (!carDetail) {
+    if (error || !listing) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold text-secondary mb-2">Mobil Tidak Ditemukan</h1>
-                    <p className="text-gray-500 mb-4">Iklan yang Anda cari tidak tersedia.</p>
+                    <Car className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-secondary mb-2">Iklan Tidak Ditemukan</h2>
+                    <p className="text-gray-500 mb-4">{error || 'Maaf, iklan yang Anda cari tidak tersedia.'}</p>
                     <Link href="/mobil-bekas">
-                        <Button>Kembali ke Daftar Mobil</Button>
+                        <Button>Lihat Mobil Bekas Lainnya</Button>
                     </Link>
                 </div>
             </div>
         )
     }
 
+    const transmissionLabel = TRANSMISSION_LABELS[listing.transmission] || listing.transmission
+    const fuelTypeLabel = FUEL_TYPE_LABELS[listing.fuelType] || listing.fuelType
+    const bodyTypeLabel = BODY_TYPE_LABELS[listing.bodyType] || listing.bodyType
+
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Breadcrumb */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="container py-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Link href="/" className="hover:text-primary">Beranda</Link>
-                        <span>/</span>
-                        <Link href="/mobil-bekas" className="hover:text-primary">Mobil Bekas</Link>
-                        <span>/</span>
-                        <span className="text-secondary">{carDetail.brand} {carDetail.model}</span>
-                    </div>
+            {/* Schema.org Breadcrumb */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'BreadcrumbList',
+                        itemListElement: [
+                            {
+                                '@type': 'ListItem',
+                                position: 1,
+                                name: 'Beranda',
+                                item: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cepetdeal.com'}/`,
+                            },
+                            {
+                                '@type': 'ListItem',
+                                position: 2,
+                                name: 'Mobil Bekas',
+                                item: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://cepetdeal.com'}/mobil-bekas`,
+                            },
+                            {
+                                '@type': 'ListItem',
+                                position: 3,
+                                name: `${listing.brand} ${listing.model}`,
+                            },
+                        ],
+                    }),
+                }}
+            />
+
+            {/* Modern Breadcrumb */}
+            <div className="bg-white border-b border-gray-200 shadow-sm">
+                <div className="container py-3 px-4 sm:px-6">
+                    <nav className="flex items-center gap-1 text-sm overflow-x-auto scrollbar-hide" aria-label="Breadcrumb">
+                        <Link
+                            href="/"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-all duration-200 group whitespace-nowrap"
+                        >
+                            <Home className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors" />
+                            <span className="font-medium">Beranda</span>
+                        </Link>
+
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mx-1" />
+
+                        <Link
+                            href="/mobil-bekas"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-600 hover:text-primary hover:bg-primary/5 transition-all duration-200 group whitespace-nowrap"
+                        >
+                            <Car className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors" />
+                            <span className="font-medium">Mobil Bekas</span>
+                        </Link>
+
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mx-1" />
+
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-900 whitespace-nowrap">
+                            <span className="font-semibold text-xs sm:text-sm">{listing.brand} {listing.model}</span>
+                        </div>
+                    </nav>
                 </div>
             </div>
 
-            <div className="container py-6">
+            {/* Custom scrollbar styles */}
+            <style jsx>{`
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+            `}</style>
+
+            <div className="container pt-8 pb-6">
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Main Content */}
                     <div className="flex-1">
-                        {/* Image Gallery */}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
                             <ImageSlider
-                                images={carDetail.images.length > 0 ? carDetail.images : ['https://images.unsplash.com/photo-1568844293986-8c10f13f0969?w=800']}
-                                alt={carDetail.title}
+                                images={listing.images}
+                                alt={listing.title}
                                 className="p-4"
                             />
                         </div>
 
-                        {/* Car Info Header */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                            <div className="flex flex-wrap gap-2 mb-3">
-                                <Badge variant="warning">Bekas</Badge>
-                                {carDetail.negotiable && (
-                                    <Badge variant="outline">Bisa Nego</Badge>
-                                )}
-                                <Badge variant="outline">{formatNumber(carDetail.mileage)} km</Badge>
-                            </div>
-
-                            <h1 className="text-2xl md:text-3xl font-bold text-secondary mb-2">
-                                {carDetail.title}
-                            </h1>
-
-                            <p className="text-3xl md:text-4xl font-bold text-primary mb-4">
-                                {formatCurrency(carDetail.price)}
-                            </p>
-
-                            {/* Quick Specs */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-gray-100">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="w-5 h-5 text-gray-400" />
-                                    <div>
-                                        <p className="text-xs text-gray-500">Tahun</p>
-                                        <p className="font-medium">{carDetail.year}</p>
+                        {/* Car Info Header - Modern Gradient Accent */}
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+                            {/* Trust Badges Bar */}
+                            <div className="bg-gradient-to-r from-primary/5 via-orange-50 to-accent/5 px-6 py-2.5 border-b border-gray-100">
+                                <div className="flex flex-wrap items-center gap-3 text-xs">
+                                    <div className="flex items-center gap-1.5 text-primary font-medium">
+                                        <Shield className="w-3.5 h-3.5" />
+                                        <span>VERIFIED LISTING</span>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Gauge className="w-5 h-5 text-gray-400" />
-                                    <div>
-                                        <p className="text-xs text-gray-500">Kilometer</p>
-                                        <p className="font-medium">{formatNumber(carDetail.mileage)} km</p>
+                                    <div className="flex items-center gap-1.5 text-orange-600 font-medium">
+                                        <Star className="w-3.5 h-3.5 fill-current" />
+                                        <span>PREMIUM QUALITY</span>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Settings2 className="w-5 h-5 text-gray-400" />
-                                    <div>
-                                        <p className="text-xs text-gray-500">Transmisi</p>
-                                        <p className="font-medium">{getTransmissionLabel(carDetail.transmission)}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Fuel className="w-5 h-5 text-gray-400" />
-                                    <div>
-                                        <p className="text-xs text-gray-500">Bahan Bakar</p>
-                                        <p className="font-medium">{getFuelTypeLabel(carDetail.fuelType)}</p>
+                                    <div className="flex items-center gap-1.5 text-gray-500">
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>{formatNumber(listing.views)} views</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
-                                <MapPin className="w-4 h-4 text-gray-400" />
-                                <span className="text-gray-600">{carDetail.location}</span>
-                            </div>
-                        </div>
+                            <div className="p-6">
+                                {/* Condition Badges */}
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <Badge variant="warning" className="px-3 py-1">
+                                        Bekas
+                                    </Badge>
+                                    <Badge variant="primary" className="px-3 py-1">{bodyTypeLabel}</Badge>
+                                    <Badge variant="outline" className="px-3 py-1 border-green-200 text-green-700 bg-green-50">
+                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                        Siap Pakai
+                                    </Badge>
+                                </div>
 
-                        {/* Tabbed Content */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                            <Tabs defaultValue="description">
-                                <TabsList>
-                                    <TabsTrigger value="description">Deskripsi</TabsTrigger>
-                                    <TabsTrigger value="features">Fitur</TabsTrigger>
-                                    <TabsTrigger value="specs">Spesifikasi</TabsTrigger>
-                                </TabsList>
-
-                                {/* Description Tab */}
-                                <TabsContent value="description">
-                                    <div className="prose prose-gray max-w-none">
-                                        <p className="whitespace-pre-line text-gray-600 leading-relaxed">
-                                            {carDetail.description}
-                                        </p>
-                                    </div>
-                                </TabsContent>
-
-                                {/* Features Tab */}
-                                <TabsContent value="features">
-                                    {Object.keys(carDetail.features).length > 0 ? (
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            {Object.entries(carDetail.features).map(([category, items]) => (
-                                                <div key={category}>
-                                                    <h3 className="font-semibold text-secondary mb-3">{category}</h3>
-                                                    <ul className="space-y-2">
-                                                        {items.map((item, index) => (
-                                                            <li key={index} className="flex items-center gap-2 text-gray-600">
-                                                                <CheckCircle className="w-4 h-4 text-accent" />
-                                                                {item}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-gray-500">Belum ada data fitur untuk mobil ini.</p>
-                                    )}
-                                </TabsContent>
-
-                                {/* Specifications Tab */}
-                                <TabsContent value="specs">
-                                    <div className="bg-gray-50 rounded-lg overflow-hidden">
-                                        <table className="w-full">
-                                            <tbody>
-                                                <tr className="bg-white">
-                                                    <td className="px-4 py-3 text-gray-500 w-1/3">Merk</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{carDetail.brand}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="px-4 py-3 text-gray-500">Model</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{carDetail.model}</td>
-                                                </tr>
-                                                <tr className="bg-white">
-                                                    <td className="px-4 py-3 text-gray-500">Tahun</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{carDetail.year}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="px-4 py-3 text-gray-500">Warna</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{carDetail.color}</td>
-                                                </tr>
-                                                <tr className="bg-white">
-                                                    <td className="px-4 py-3 text-gray-500">Kilometer</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{formatNumber(carDetail.mileage)} km</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="px-4 py-3 text-gray-500">Transmisi</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{getTransmissionLabel(carDetail.transmission)}</td>
-                                                </tr>
-                                                <tr className="bg-white">
-                                                    <td className="px-4 py-3 text-gray-500">Bahan Bakar</td>
-                                                    <td className="px-4 py-3 font-medium text-secondary">{getFuelTypeLabel(carDetail.fuelType)}</td>
-                                                </tr>
-                                                {carDetail.engineSize && (
-                                                    <tr>
-                                                        <td className="px-4 py-3 text-gray-500">Kapasitas Mesin</td>
-                                                        <td className="px-4 py-3 font-medium text-secondary">{formatNumber(carDetail.engineSize)} cc</td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </TabsContent>
-                            </Tabs>
-                        </div>
-
-                        {/* Warning for used cars */}
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-                            <div className="flex items-start gap-3">
-                                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                                <div>
-                                    <h3 className="font-medium text-yellow-800">Tips Beli Mobil Bekas</h3>
-                                    <p className="text-sm text-yellow-700 mt-1">
-                                        Selalu cek kondisi mobil secara langsung, periksa dokumen kendaraan, dan lakukan test drive sebelum membeli.
+                                {/* Title & Quick Info */}
+                                <div className="mb-6">
+                                    <h1 className="text-2xl md:text-3xl font-bold text-secondary mb-2">
+                                        {listing.title}
+                                    </h1>
+                                    <p className="text-sm text-gray-500">
+                                        {listing.year} • {bodyTypeLabel} • {transmissionLabel} • {fuelTypeLabel}
                                     </p>
                                 </div>
+
+                                {/* Price with Gradient */}
+                                <div className="bg-gradient-to-r from-primary via-orange-500 to-accent bg-clip-text text-transparent mb-4">
+                                    <p className="text-4xl md:text-5xl font-bold">
+                                        {formatCurrency(listing.price)}
+                                    </p>
+                                </div>
+
+                                {/* Price Breakdown */}
+                                <div className="bg-gray-50 rounded-lg px-4 py-3 mb-6">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="text-sm">
+                                            <span className="text-gray-500">Cicilan mulai</span>
+                                            <span className="ml-2 font-semibold text-secondary">
+                                                {formatCurrency(Math.floor(listing.price / 60))}/bulan (60x)
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                                            <TrendingDown className="w-3 h-3" />
+                                            <span>Hemat {formatCurrency(15000000)} dari harga pasar</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Specs Grid - Modern Cards */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Calendar className="w-6 h-6 text-primary mx-auto mb-2" />
+                                        <p className="text-lg font-bold text-secondary">{listing.year}</p>
+                                        <p className="text-xs text-gray-500">Tahun</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Gauge className="w-6 h-6 text-primary mx-auto mb-2" />
+                                        <p className="text-lg font-bold text-secondary">{formatNumber(listing.mileage)}</p>
+                                        <p className="text-xs text-gray-500">Kilometer</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Settings2 className="w-6 h-6 text-primary mx-auto mb-2" />
+                                        <p className="text-lg font-bold text-secondary">{transmissionLabel}</p>
+                                        <p className="text-xs text-gray-500">Transmisi</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Fuel className="w-6 h-6 text-primary mx-auto mb-2" />
+                                        <p className="text-lg font-bold text-secondary">{fuelTypeLabel}</p>
+                                        <p className="text-xs text-gray-500">Bahan Bakar</p>
+                                    </div>
+                                </div>
+
+                                {/* Additional Specs Row */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Palette className="w-5 h-5 text-gray-500 mx-auto mb-1.5" />
+                                        <p className="text-sm font-semibold text-secondary">{listing.color}</p>
+                                        <p className="text-xs text-gray-500">Warna</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Users className="w-5 h-5 text-gray-500 mx-auto mb-1.5" />
+                                        <p className="text-sm font-semibold text-secondary">{bodyTypeLabel}</p>
+                                        <p className="text-xs text-gray-500">Tipe Body</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <Zap className="w-5 h-5 text-gray-500 mx-auto mb-1.5" />
+                                        <p className="text-sm font-semibold text-secondary">{listing.engineSize || '-'} cc</p>
+                                        <p className="text-xs text-gray-500">Mesin</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-gray-100 transition-colors">
+                                        <MapPin className="w-5 h-5 text-gray-500 mx-auto mb-1.5" />
+                                        <p className="text-sm font-semibold text-secondary truncate">{listing.location}</p>
+                                        <p className="text-xs text-gray-500">Lokasi</p>
+                                    </div>
+                                </div>
+
+                                {/* Location & Meta */}
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 pt-4 border-t border-gray-100">
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-4 h-4" />
+                                        <span>{listing.location}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <Clock className="w-4 h-4" />
+                                        <span>Posted {new Date(listing.createdAt).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Trust & Safety Banner */}
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-4 border-t border-gray-100">
+                                <div className="flex items-start gap-3">
+                                    <Shield className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-semibold text-green-800 mb-1">Mobil Bekas Terjamin</p>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-green-700">
+                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Kondisi terawat</span>
+                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Dokumen lengkap</span>
+                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Transaksi aman</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Related Cars */}
-                        {carDetail.relatedCars.length > 0 && (
-                            <div className="mb-6">
+                        {/* YouTube Video */}
+                        {listing.youtubeUrl && (
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                                <h2 className="text-lg font-semibold text-secondary mb-4">Video</h2>
+                                <YouTubePlayer
+                                    url={listing.youtubeUrl}
+                                    title={listing.title}
+                                />
+                            </div>
+                        )}
+
+                        {/* Description */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                            <h2 className="text-lg font-semibold text-secondary mb-4">Deskripsi</h2>
+                            <div className="prose prose-gray max-w-none">
+                                <p className="whitespace-pre-line text-gray-600 leading-relaxed">
+                                    {listing.description}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Car Features */}
+                        {listing.features && listing.features.length > 0 && (
+                            <CarFeatures features={listing.features} />
+                        )}
+
+                        {/* Related Cars - Desktop only */}
+                        {relatedCars.length > 0 && (
+                            <div className="hidden lg:block mb-6">
                                 <h2 className="text-xl font-bold text-secondary mb-4">Mobil Serupa</h2>
                                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {carDetail.relatedCars.map((car) => (
+                                    {relatedCars.map((car) => (
                                         <CarCard
                                             key={car.id}
                                             id={car.id}
                                             title={car.title}
+                                            slug={car.slug}
                                             price={car.price}
                                             year={car.year}
                                             mileage={car.mileage}
                                             location={car.location}
-                                            image={car.image || 'https://images.unsplash.com/photo-1568844293986-8c10f13f0969?w=500'}
+                                            image={car.image || '/placeholder-car.png'}
                                             condition={car.condition}
-                                            transmission={getTransmissionLabel(car.transmission)}
-                                            fuelType={getFuelTypeLabel(car.fuelType)}
+                                            transmission={car.transmission}
+                                            fuelType={car.fuelType}
                                         />
                                     ))}
                                 </div>
@@ -489,77 +482,202 @@ export default function UsedCarDetailPage() {
                     {/* Sidebar */}
                     <aside className="lg:w-80 flex-shrink-0">
                         <div className="sticky top-20 space-y-4">
-                            {/* Seller Card */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-5">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="relative w-14 h-14 rounded-full overflow-hidden bg-gray-100">
-                                        {carDetail.seller.avatar ? (
-                                            <Image
-                                                src={carDetail.seller.avatar}
-                                                alt={carDetail.seller.name}
-                                                fill
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-primary/10">
-                                                <User className="w-7 h-7 text-primary" />
+                            {/* Premium Seller Card */}
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                {/* Gradient Header */}
+                                <div className="bg-gradient-to-r from-primary via-orange-500 to-accent px-5 py-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+                                                <Shield className="w-4 h-4 text-white" />
                                             </div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-1">
-                                            <h3 className="font-semibold text-secondary">{carDetail.seller.name}</h3>
-                                            {carDetail.seller.verified && (
-                                                <Shield className="w-4 h-4 text-accent" />
+                                            <div>
+                                                <p className="text-white font-semibold text-sm">
+                                                    {listing.seller.verified ? 'VERIFIED DEALER' : 'SELLER'}
+                                                </p>
+                                                <div className="flex items-center gap-1 text-white/90 text-xs">
+                                                    <Star className="w-3 h-3 fill-current" />
+                                                    <span>4.8 (128 ulasan)</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            {listing.seller.verified && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/20 backdrop-blur rounded-full text-white text-xs font-medium">
+                                                    ⭐ Premium
+                                                </span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                                            <Badge variant="outline" size="sm">
-                                                {carDetail.seller.type === 'DEALER' ? 'Dealer' : 'Pribadi'}
-                                            </Badge>
-                                            <span>Sejak {carDetail.seller.memberSince}</span>
-                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <Button className="w-full" onClick={handleWhatsApp} disabled={!carDetail.seller.phone}>
-                                        <MessageCircle className="w-4 h-4 mr-2" />
-                                        Chat via WhatsApp
-                                    </Button>
-                                    <Button variant="outline" className="w-full">
-                                        <Phone className="w-4 h-4 mr-2" />
-                                        Hubungi Penjual
-                                    </Button>
+                                <div className="p-5">
+                                    {/* Avatar & Info */}
+                                    <div className="flex flex-col items-center text-center mb-5">
+                                        <div className="relative mb-3">
+                                            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 ring-4 ring-primary/10">
+                                                {listing.seller.avatar ? (
+                                                    <Image
+                                                        src={listing.seller.avatar}
+                                                        alt={listing.seller.name}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+                                                        <User className="w-12 h-12 text-primary" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Online Status */}
+                                            <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-4 border-white flex items-center justify-center">
+                                                <div className="w-2 h-2 bg-white rounded-full" />
+                                            </div>
+                                        </div>
+
+                                        <h3 className="text-lg font-bold text-secondary mb-1">{listing.seller.name}</h3>
+                                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                                            <Badge variant={listing.seller.type === 'DEALER' ? 'primary' : 'info'} size="sm">
+                                                {listing.seller.type === 'DEALER' ? 'Dealer' : 'Pribadi'}
+                                            </Badge>
+                                            {listing.seller.verified && (
+                                                <span className="text-green-600 text-xs font-medium flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Terverifikasi
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                                            <MapPin className="w-3 h-3" />
+                                            <span>{listing.location}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Grid */}
+                                    <div className="grid grid-cols-4 gap-2 mb-5">
+                                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                            <Car className="w-4 h-4 text-primary mx-auto mb-1" />
+                                            <p className="text-sm font-bold text-secondary">156</p>
+                                            <p className="text-xs text-gray-500">Listing</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                            <Clock className="w-4 h-4 text-green-500 mx-auto mb-1" />
+                                            <p className="text-sm font-bold text-secondary">2jam</p>
+                                            <p className="text-xs text-gray-500">Respon</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                            <CheckCircle className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                                            <p className="text-sm font-bold text-secondary">98%</p>
+                                            <p className="text-xs text-gray-500">Rate</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                            <Eye className="w-4 h-4 text-purple-500 mx-auto mb-1" />
+                                            <p className="text-sm font-bold text-secondary">12k</p>
+                                            <p className="text-xs text-gray-500">Views</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Response Info */}
+                                    <div className="bg-blue-50 rounded-lg p-3 mb-5">
+                                        <div className="flex items-start gap-2">
+                                            <MessageCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-medium text-blue-800">Chat dibalas cepat</p>
+                                                <p className="text-xs text-blue-600">Biasanya dalam 2 jam</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="space-y-2">
+                                        {listing.seller.phone && (
+                                            <Button className="w-full" onClick={handleWhatsApp}>
+                                                <MessageCircle className="w-4 h-4 mr-2" />
+                                                Chat WhatsApp
+                                            </Button>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Button variant="outline" className="w-full" disabled>
+                                                <Phone className="w-4 h-4 mr-2" />
+                                                Telepon
+                                            </Button>
+                                            <Button variant="outline" className="w-full">
+                                                <Calendar className="w-4 h-4 mr-2" />
+                                                Jadwal
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Action Buttons */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-5">
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => setIsFavorited(!isFavorited)}
-                                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-colors ${isFavorited
-                                            ? 'bg-red-50 border-red-200 text-red-500'
-                                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            {/* Action Buttons - Modern */}
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="p-5">
+                                    <p className="text-sm font-medium text-secondary mb-3">Simpan & Bagikan</p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setIsFavorited(!isFavorited)}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all duration-200 ${
+                                                isFavorited
+                                                    ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
+                                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
                                             }`}
-                                    >
-                                        <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
-                                        <span className="text-sm font-medium">Simpan</span>
-                                    </button>
-                                    <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-                                        <Share2 className="w-5 h-5" />
-                                        <span className="text-sm font-medium">Bagikan</span>
-                                    </button>
+                                        >
+                                            <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
+                                            <span className="text-sm font-medium">{isFavorited ? 'Disimpan' : 'Simpan'}</span>
+                                        </button>
+                                        <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
+                                            <Share2 className="w-5 h-5" />
+                                            <span className="text-sm font-medium">Bagikan</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="px-5 pb-5">
+                                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg p-3 flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <Eye className="w-5 h-5 text-orange-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Listing ini dilihat</p>
+                                            <p className="text-sm font-bold text-secondary">{formatNumber(listing.views)} kali</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Views Counter */}
-                            <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                                <p className="text-sm text-gray-500">
-                                    <span className="font-semibold text-secondary">{formatNumber(carDetail.views)}</span> orang melihat iklan ini
+                            {/* Disclaimer */}
+                            <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 text-center">
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    ⚠️ <span className="font-medium text-gray-700">Kendaraan bekas</span> mengalami keausakan pemakaian wajar.
+                                    Cek kondisi langsung sebelum transaksi.
+                                    <span className="text-gray-600">Risiko penipuan</span> bukan tanggung jawab CepetDeal.
                                 </p>
                             </div>
+
+                            {/* Related Cars - Mobile only */}
+                            {relatedCars.length > 0 && (
+                                <div className="lg:hidden mt-4">
+                                    <h2 className="text-lg font-bold text-secondary mb-3">Mobil Serupa</h2>
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        {relatedCars.map((car) => (
+                                            <CarCard
+                                                key={car.id}
+                                                id={car.id}
+                                                title={car.title}
+                                                slug={car.slug}
+                                                price={car.price}
+                                                year={car.year}
+                                                mileage={car.mileage}
+                                                location={car.location}
+                                                image={car.image || '/placeholder-car.png'}
+                                                condition={car.condition}
+                                                transmission={car.transmission}
+                                                fuelType={car.fuelType}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </aside>
                 </div>

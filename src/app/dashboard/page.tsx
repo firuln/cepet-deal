@@ -79,7 +79,7 @@ export default function DashboardPage() {
                             Kelola iklan dan pantau performa Anda
                         </p>
                     </div>
-                    <Link href="/dashboard/listings/new">
+                    <Link href="/dashboard/listings/used">
                         <Button>
                             <Plus className="w-4 h-4 mr-2" />
                             Pasang Iklan Baru
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                         <h2 className="font-semibold text-secondary mb-4">Aksi Cepat</h2>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <Link
-                                href="/dashboard/listings/new"
+                                href="/dashboard/listings/used"
                                 className="flex flex-col items-center gap-2 p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors text-center"
                             >
                                 <Plus className="w-6 h-6 text-primary" />

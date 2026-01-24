@@ -14,7 +14,20 @@
       "Bash(git remote add:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(tree:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(npm run build:*)",
+      "Bash(\"F:\\\\cepet-deal-main\\\\src\\\\app\\\\mobil-bekas\\\\[slug]\\\\page.tsx\")",
+      "Bash(npm run db:features:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(powershell:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

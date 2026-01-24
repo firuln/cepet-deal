@@ -20,6 +20,9 @@ export async function GET(
             include: {
                 brand: true,
                 model: true,
+                features: {
+                    orderBy: { category: 'asc' }
+                },
                 user: {
                     select: {
                         id: true,
@@ -28,6 +31,7 @@ export async function GET(
                         phone: true,
                         avatar: true,
                         role: true,
+                        createdAt: true,
                         dealer: {
                             select: {
                                 verified: true
@@ -76,7 +80,6 @@ export async function GET(
             model: listing.model.name,
             year: listing.year,
             price: Number(listing.price),
-            negotiable: listing.negotiable,
             condition: listing.condition,
             transmission: listing.transmission,
             fuelType: listing.fuelType,
@@ -90,7 +93,11 @@ export async function GET(
             youtubeUrl: listing.youtubeUrl,
             views: listing.views + 1,
             createdAt: listing.createdAt.toISOString(),
-            features: listing.features || {},
+            features: listing.features.map(f => ({
+                id: f.id,
+                category: f.category,
+                name: f.name
+            })),
             seller: {
                 id: listing.user.id,
                 name: listing.user.name,

@@ -66,12 +66,8 @@ export async function GET(req: Request) {
                         email: true,
                         phone: true,
                         avatar: true,
-                        role: true
-                    }
-                },
-                _count: {
-                    select: {
-                        user: {
+                        role: true,
+                        _count: {
                             select: {
                                 listings: {
                                     where: { status: 'ACTIVE' }
@@ -97,7 +93,7 @@ export async function GET(req: Request) {
             createdAt: dealer.createdAt,
             updatedAt: dealer.updatedAt,
             user: dealer.user,
-            activeListingsCount: dealer._count.user.listings.length
+            activeListingsCount: dealer.user._count?.listings || 0
         }))
 
         return NextResponse.json({

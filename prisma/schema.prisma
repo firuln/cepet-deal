@@ -12,11 +12,17 @@ model User {
   id            String    @id @default(cuid())
   name          String
   email         String    @unique
+  username      String?   @unique
   password      String
   phone         String?
+  whatsapp      String?
+  location      String?
+  bio           String?
   avatar        String?
   role          UserRole  @default(BUYER)
   emailVerified DateTime?
+  isSuspended   Boolean   @default(false)
+  verificationBadge String? // VERIFIED_SELLER, VERIFIED_DEALER
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -27,6 +33,11 @@ model User {
   sentMessages  Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
   viewHistory   ViewHistory[]
+  articles      Article[] @relation("ArticleAuthor")
+  reportsCreated Report[] @relation("ReportReporter")
+  reportsReviewed Report[] @relation("ReportReviewer")
+  reviewsGiven  Review[] @relation("ReviewReviewer")
+  reviewsReceived Review[] @relation("ReviewSeller")
 }
 
 enum UserRole {
@@ -112,6 +123,7 @@ model Listing {
   messages     Message[]
   viewHistory  ViewHistory[]
   features     CarFeature[]
+  reviews      Review[]       @relation("ListingReviews")
 }
 
 enum CarCondition {
@@ -231,4 +243,112 @@ model SiteSetting {
   key       String   @unique
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Articles / Blog
+model Article {
+  id            String           @id @default(cuid())
+  title         String
+  slug          String           @unique
+  content       String           @db.Text
+  excerpt       String?
+  featuredImage String?
+  category      ArticleCategory
+  tags          String[]         // Array of tag strings
+  authorId      String           // Admin user ID
+  status        ArticleStatus    @default(DRAFT)
+  metaTitle     String?
+  metaDescription String?
+  views         Int              @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  author        User             @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+enum ArticleCategory {
+  NEWS
+  REVIEW
+  TIPS
+  GUIDE
+  PROMO
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ============================================
+// TRUST & SAFETY MODELS
+// ============================================
+
+model Report {
+  id              String   @id @default(cuid())
+  reporterId      String
+  reportableType  ReportableType
+  reportableId    String
+  reason          ReportReason
+  description     String?
+  status          ReportStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  reporter        User     @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewer        User?    @relation("ReportReviewer", fields: [reviewedBy], references: [id])
+}
+
+enum ReportableType {
+  LISTING
+  USER
+  MESSAGE
+  ARTICLE
+  REVIEW
+}
+
+enum ReportReason {
+  FRAUD
+  SPAM
+  INAPPROPRIATE_CONTENT
+  FALSE_INFORMATION
+  SCAM
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+model Review {
+  id              String   @id @default(cuid())
+  listingId       String?
+  reviewerId      String
+  sellerId        String
+  rating          Int      // 1-5 stars
+  title           String?
+  content         String
+  response        String?  // Seller's response
+  status          ReviewStatus @default(PENDING)
+  verified        Boolean  @default(false) // Verified purchase
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  reviewer        User     @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  seller          User     @relation("ReviewSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  carListing      Listing? @relation("ListingReviews", fields: [listingId], references: [id], onDelete: SetNull)
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
 }

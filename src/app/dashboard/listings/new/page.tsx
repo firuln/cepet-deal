@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, Suspense } from 'react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -11,9 +12,8 @@ import {
     Car,
     Info,
     DollarSign,
-    MapPin,
-    FileText,
     CheckCircle,
+    Loader2,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
@@ -26,14 +26,9 @@ import {
 const steps = [
     { id: 1, title: 'Informasi Dasar', icon: Car },
     { id: 2, title: 'Detail Mobil', icon: Info },
-    { id: 3, title: 'Harga & Lokasi', icon: DollarSign },
+    { id: 3, title: 'Harga', icon: DollarSign },
     { id: 4, title: 'Foto & Deskripsi', icon: Camera },
 ]
-
-const years = Array.from({ length: 15 }, (_, i) => ({
-    value: String(2025 - i),
-    label: String(2025 - i),
-}))
 
 const colors = [
     { value: 'putih', label: 'Putih' },
@@ -60,18 +55,30 @@ const CAR_DATA: Record<string, Record<string, string[]>> = {
         "INNOVA": ["2.0 G", "2.0 V", "2.0 Q", "2.4 G", "2.4 V", "2.4 Q", "Venturer", "Zenix G", "Zenix V", "Zenix Q Hybrid"],
         "RUSH": ["1.5 G", "1.5 S TRD", "1.5 GR Sport"],
         "VELOZ": ["1.3", "1.5", "1.5 Q", "1.5 Q TSS"],
-        "YARIS": ["1.5 E", "1.5 G", "1.5 S TRD", "1.5 GR Sport"],
-        "RAIZE": ["1.2 G", "1.0 G Turbo", "1.0 GR Sport", "1.0 GR TSS"]
+        "YARIS": ["1.5 E", "1.5 G", "1.5 S TRD", "1.5 GR Sport", "Cross"],
+        "RAIZE": ["1.2 G", "1.0 G Turbo", "1.0 GR Sport", "1.0 GR TSS"],
+        "KIJANG": ["LGX 1.8", "LGX 2.0", "Kijang Kapsul", "Super", "Grand Extra", "Rover"],
+        "SOLUNA": ["GLi", "GLi Plus", "VTi"],
+        "VIOS": ["G", "E", "Limo"],
+        "ETIOS": ["1.2 J", "1.2 G", "1.2 V"],
+        "NAV1": ["G", "V"],
+        "SIENTA": ["1.5 E", "1.5 G", "1.5 V"],
+        "WISH": ["1.8", "2.0"],
+        "RUMPH": ["1.3", "1.5"],
     },
     "Daihatsu": {
         "AYLA": ["1.0 D", "1.0 M", "1.0 X", "1.2 X", "1.2 R", "1.2 R Deluxe"],
         "SIGRA": ["1.0 D", "1.0 M", "1.2 X", "1.2 R", "1.2 R Deluxe"],
-        "XENIA": ["1.3 M", "1.3 X", "1.3 R", "1.5 R", "1.3 R ADS", "1.5 R ASA"],
-        "TERIOS": ["X", "X Deluxe", "R", "R Deluxe", "R Custom", "X ADS", "R ADS"],
+        "XENIA": ["1.3 M", "1.3 X", "1.3 R", "1.5 R", "1.3 R ADS", "1.5 R ASA", "Li Deluxe", "Xi Deluxe"],
+        "TERIOS": ["X", "X Deluxe", "R", "R Deluxe", "R Custom", "X ADS", "R ADS", "TX Adventure"],
         "ROCKY": ["1.2 M", "1.2 X", "1.0 R TC", "1.0 R TC ASA", "1.2 X ADS"],
         "GRAN MAX": ["1.3 D", "1.3 FF", "1.5 D PS", "Blind Van 1.3", "Pick Up 1.3", "Pick Up 1.5"],
         "LUXIO": ["1.5 D", "1.5 X"],
-        "SIRION": ["1.3 D", "1.3 X", "1.3 R"]
+        "SIRION": ["1.3 D", "1.3 X", "1.3 R"],
+        "CHARADE": ["1.0", "G10", "G11", "CS"],
+        "CLASSY": ["1.0", "1.2"],
+        "ZEBRA": ["1.0", "1.3", "Espass"],
+        "TAFT": ["GT", "GT Diesel", "Hiline", "Feroza"],
     },
     "Honda": {
         "BRIO": ["Satya S", "Satya E", "RS", "RS Urbanite"],
@@ -79,15 +86,24 @@ const CAR_DATA: Record<string, Record<string, string[]>> = {
         "CR-V": ["2.0", "1.5 Turbo", "1.5 Turbo Prestige"],
         "BR-V": ["S", "E", "Prestige", "Prestige HS"],
         "CITY": ["Sedan", "Hatchback RS"],
-        "CIVIC": ["Sedan RS", "Type R"],
-        "MOBILIO": ["S", "E", "RS"]
+        "CIVIC": ["Sedan RS", "Type R", "Ferio", "VTi"],
+        "MOBILIO": ["S", "E", "RS"],
+        "JAZZ": ["S", "RS", "IDSI", "VTEC", "Fit"],
+        "FREED": ["S", "E", "PSD"],
+        "STREAM": ["1.7", "2.0"],
+        "ODYSSEY": ["2.4", "Absolute"],
+        "ACCORD": ["VTi", "VTi-L", "Cielo", "Maestro"],
+        "BALADE": ["1.5", "1.6"],
     },
     "Mitsubishi": {
         "XPANDER": ["GLS", "Exceed", "Sport", "Ultimate"],
         "XPANDER CROSS": ["MT", "Premium CVT"],
         "PAJERO SPORT": ["Exceed", "GLX", "Dakar", "Dakar Ultimate"],
         "TRITON": ["Single Cab", "Double Cab HDX", "Double Cab GLS", "Double Cab Ultimate"],
-        "L300": ["Pick Up Flat Deck", "Cab Chassis"]
+        "L300": ["Pick Up Flat Deck", "Cab Chassis"],
+        "COLT": ["T120SS", "L300", "Diesel"],
+        "KUDA": ["GLS", "Grandia"],
+        "GALANT": ["2.0", "V6"],
     },
     "Suzuki": {
         "ERTIGA": ["GA", "GL", "GX", "Sport", "Hybrid GX", "Hybrid SS"],
@@ -96,29 +112,123 @@ const CAR_DATA: Record<string, Record<string, string[]>> = {
         "BALENO": ["Hatchback MT", "Hatchback AT"],
         "JIMNY": ["MT", "AT"],
         "S-PRESSO": ["MT", "AGS"],
-        "CARRY": ["Pick Up FD", "Pick Up WD"]
+        "CARRY": ["Pick Up FD", "Pick Up WD"],
+        "APV": ["GE", "GL", "SGX", "Arena"],
+        "KARIMUN": ["Wagon R", "Estillo", "GX"],
+        "SWIFT": ["GL", "GT", "SB308"],
+        "GRAND VITARA": ["2.0", "2.4", "JLX"],
+        "SIDEKICK": ["1.6", "2.0"],
+        "KATANA": ["1.3", "1.6"],
     },
     "Hyundai": {
         "CRETA": ["Active", "Trend", "Style", "Prime"],
         "STARGAZER": ["Active", "Trend", "Style", "Prime", "X Style", "X Prime"],
         "IONIQ 5": ["Prime Standard", "Prime Long Range", "Signature Standard", "Signature Long Range"],
         "PALISADE": ["Prime", "Signature", "Signature AWD"],
-        "SANTA FE": ["Gasoline G 2.5", "Diesel D 2.2"]
+        "SANTA FE": ["Gasoline G 2.5", "Diesel D 2.2"],
+        "TUCSON": ["Gasoline", "Diesel", "GLS", "XG"],
+        "GETZ": ["1.4 GL", "1.6 GLS"],
+        "ATOZ": ["1.0", "1.1"],
+        "ACCENT": ["1.5", "Verna"],
     },
     "Wuling": {
         "CONFERO": ["S 1.5 C", "S 1.5 L", "DB"],
         "ALMAZ": ["Smart Enjoy", "Exclusive", "RS Ex", "RS Pro", "Hybrid"],
         "CORTEZ": ["S", "CT", "New Cortez CE", "New Cortez EX"],
         "AIR EV": ["Lite", "Standard Range", "Long Range"],
-        "ALVEZ": ["SE", "CE", "EX"]
+        "ALVEZ": ["SE", "CE", "EX"],
     },
     "Mazda": {
-        "2": ["GT"],
-        "3": ["Hatchback", "Sedan"],
+        "2": ["GT", "R", "V"],
+        "3": ["Hatchback", "Sedan", "Speed"],
         "CX-3": ["1.5 Sport", "2.0 Pro"],
-        "CX-5": ["Elite", "Kuro"],
-        "CX-30": ["GT"]
-    }
+        "CX-5": ["Elite", "Kuro", "Touring"],
+        "CX-30": ["GT", "Pro"],
+        "CX-9": ["Elite", "Signature"],
+        "CAPRELLA": ["1.6", "1.8"],
+        "FAMILY": ["1.8", "2.0"],
+        "INTERPLAY": ["1.6", "2.0"],
+        "LANCER": ["1.6", "2.0", "SL"],
+    },
+    "Nissan": {
+        "LIVINA": ["1.5 X-Gear", "1.5 Highway Star", "1.5 SV"],
+        "GRAND LIVINA": ["1.5 SV", "1.5 XV", "1.8 HWS"],
+        "MARCH": ["1.2", "1.5"],
+        "JUKE": ["1.5", "1.5 RX", "Nismo"],
+        "X-TRAIL": ["2.0", "2.5", "32", "36"],
+        "TERRANO": ["2.0", "2.5"],
+        "SERENA": ["2.0 X", "2.0 HWS"],
+        "ELGRAND": ["2.5", "3.5"],
+        "TEANA": ["2.3", "2.5", "3.5"],
+        "CEDRIC": ["2.0", "3.0"],
+        "SUNNY": ["1.4", "1.6", "Super Saloon"],
+    },
+    "BMW": {
+        "320i": ["Sport", "Luxury", "Modern"],
+        "318i": ["Sport", "Luxury"],
+        "520i": ["Sport", "Luxury"],
+        "X1": ["sDrive18i", "sDrive20i", "xDrive25i"],
+        "X3": ["xDrive20i", "xDrive30i"],
+        "X5": ["xDrive30d", "xDrive40d"],
+        "MINI": ["Cooper", "Cooper S", "Countryman"],
+    },
+    "Mercedes-Benz": {
+        "C200": ["Avantgarde", "Exclusive"],
+        "C300": ["AMG Line", "Avantgarde"],
+        "E300": ["Avantgarde", "Exclusive"],
+        "A200": ["Progressive", "Urban"],
+        "GLA200": ["Progressive", "AMG Line"],
+        "GLC300": ["AMG Line", "Exclusive"],
+    },
+    "Audi": {
+        "A3": ["1.4 TFSI", "2.0 TDI"],
+        "A4": ["1.8 TFSI", "2.0 TDI"],
+        "A6": ["2.0 TFSI", "3.0 TDI"],
+        "Q3": ["1.4 TFSI", "2.0 TDI"],
+        "Q5": ["2.0 TFSI", "3.0 TDI"],
+        "TT": ["2.0 TFSI", "RS"],
+    },
+    "Volkswagen": {
+        "Polo": ["1.2 TSI", "1.4 TSI"],
+        "Golf": ["1.4 TSI", "2.0 TDI"],
+        "Tiguan": ["1.4 TSI", "2.0 TDI"],
+        "Touareg": ["2.0 TDI", "3.0 V6 TDI"],
+        "Caravelle": ["2.0 TDI", "2.5 TDI"],
+    },
+    "Ford": {
+        "FIESTA": ["1.4 Trend", "1.6 Sport"],
+        "FOCUS": ["1.8 Trend", "2.0 Sport", "RS"],
+        "EVEREST": ["2.2 Trend", "3.2 Titanium"],
+        "RANGER": ["2.2 Single Cab", "2.2 Double Cab", "3.2 Wildtrak"],
+        "ECOSPORT": ["1.5 Trend", "1.5 Titanium"],
+        "LASER": ["1.3", "1.6", "TX3"],
+        "TELSTAR": ["1.8", "2.0"],
+    },
+    "Chevrolet": {
+        "SPARK": ["1.0", "1.2"],
+        "TRAX": ["1.4 LT", "1.4 Premier"],
+        "CAPTIVA": ["1.8", "2.0 Diesel"],
+        "ORLANDO": ["1.8", "2.0 Diesel"],
+        "COLORADO": ["2.5", "2.8"],
+        "ZAFIRA": ["1.8", "2.0"],
+    },
+    "Kia": {
+        "PICANTO": ["1.0", "1.2", "SE"],
+        "RIO": ["1.4", "1.6"],
+        "CERATO": ["1.8", "2.0"],
+        "SOUL": ["1.6", "2.0"],
+        "SPORTAGE": ["2.0", "2.0 Diesel"],
+        "SORENTO": ["2.4", "3.5", "2.2 Diesel"],
+        "CARNIVAL": ["2.5", "3.5"],
+        "BEGO": ["1.5", "2.0"],
+    },
+    "Isuzu": {
+        "PANTHER": ["2.3", "2.5", "Touring", "Grand Touring"],
+        "D-MAX": ["Single Cab", "Double Cab", "Rodeo"],
+        "MU-X": ["3.0", "4x4"],
+        "NHR": ["55", "100"],
+        "NKR": ["55", "66"],
+    },
 }
 
 // Car Features by Category
@@ -129,8 +239,9 @@ const CAR_FEATURES = {
     'Hiburan': ['8 inch Touchscreen', 'Bluetooth', 'USB Port', 'Steering Audio Control'],
 }
 
-export default function NewListingPage() {
+function NewListingForm() {
     const router = useRouter()
+    const { data: session, status: sessionStatus } = useSession()
     const [currentStep, setCurrentStep] = useState(1)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [images, setImages] = useState<string[]>([])
@@ -141,30 +252,30 @@ export default function NewListingPage() {
         'Hiburan': [],
     })
 
-    // Form data
-    const [formData, setFormData] = useState({
+    // Form data - khusus mobil baru
+    const [formData, setFormData] = useState(() => ({
         // Step 1
         brand: '',
         model: '',
         variant: '',
         year: '',
-        condition: 'USED',
         // Step 2
         transmission: '',
         fuelType: '',
         bodyType: '',
-        mileage: '',
         color: '',
-        plateNumber: '',
         // Step 3
         price: '',
         negotiable: true,
-        location: '',
-        address: '',
         // Step 4
-        title: '',
         description: '',
-    })
+    }))
+
+    // Auto-generate title from brand, model, variant
+    const autoTitle = useMemo(() => {
+        const parts = [formData.brand, formData.model, formData.variant].filter(Boolean)
+        return parts.join(' ') || 'Judul iklan akan otomatis dibuat'
+    }, [formData.brand, formData.model, formData.variant])
 
     const updateFormData = (field: string, value: string | boolean) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
@@ -174,7 +285,6 @@ export default function NewListingPage() {
         const files = e.target.files
         if (!files) return
 
-        // Simulate upload - in real app, upload to Cloudinary
         Array.from(files).forEach((file) => {
             const reader = new FileReader()
             reader.onloadend = () => {
@@ -195,11 +305,13 @@ export default function NewListingPage() {
 
             const payload = {
                 ...formData,
+                title: autoTitle,
                 images,
                 features: selectedFeatures,
+                condition: 'NEW',
             }
 
-            const res = await fetch('/api/listings', {
+            const res = await fetch('/api/listings/new', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -212,14 +324,14 @@ export default function NewListingPage() {
                 throw new Error(errorData.error || 'Gagal menyimpan iklan')
             }
 
-            // Ensure at least 1s delay for better UX (prevent flash)
             const duration = Date.now() - start
             if (duration < 1000) {
                 await new Promise(resolve => setTimeout(resolve, 1000 - duration))
             }
 
-            router.push('/dashboard/listings?success=true')
+            router.push('/admin/listings?success=true')
         } catch (error) {
+            console.error('=== SUBMIT ERROR ===')
             console.error(error)
             alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan iklan')
         } finally {
@@ -230,24 +342,64 @@ export default function NewListingPage() {
     const goNext = () => setCurrentStep((prev) => Math.min(4, prev + 1))
     const goPrev = () => setCurrentStep((prev) => Math.max(1, prev - 1))
 
+    // Check if user is admin
+    if (sessionStatus === 'loading') {
+        return (
+            <DashboardLayout>
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-t-primary border-transparent rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-gray-500">Memuat...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
+    if (sessionStatus === 'unauthenticated' || session?.user?.role !== 'ADMIN') {
+        return (
+            <DashboardLayout>
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-red-500 mb-4">Akses ditolak. Hanya admin yang dapat membuat iklan mobil baru.</p>
+                        <Link href="/dashboard">
+                            <Button>Kembali ke Dashboard</Button>
+                        </Link>
+                    </div>
+                </div>
+            </DashboardLayout>
+        )
+    }
+
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link href="/dashboard/listings">
+            <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+                {/* Header - Mobile First */}
+                <div className="flex items-center gap-3 mb-4">
+                    <Link href="/admin/listings">
                         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                             <ArrowLeft className="w-5 h-5 text-gray-600" />
                         </button>
                     </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-secondary">Pasang Iklan Baru</h1>
-                        <p className="text-gray-500 mt-1">Isi informasi mobil yang ingin Anda jual</p>
+                    <div className="flex-1">
+                        <h1 className="text-xl sm:text-2xl font-bold text-secondary">
+                            Pasang Iklan Mobil Baru
+                        </h1>
                     </div>
                 </div>
 
-                {/* Progress Steps */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                {/* Badge */}
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <Badge variant="success" size="lg">
+                        🚗 Mobil Baru (Admin Only)
+                    </Badge>
+                    <p className="text-sm text-gray-500">
+                        Langkah {currentStep} dari 4
+                    </p>
+                </div>
+
+                {/* Progress Steps - Mobile First */}
+                <div className="hidden sm:block bg-white rounded-xl border border-gray-200 p-4 mb-6">
                     <div className="flex items-center justify-between">
                         {steps.map((step, index) => (
                             <div key={step.id} className="flex items-center">
@@ -256,7 +408,7 @@ export default function NewListingPage() {
                                         }`}
                                 >
                                     <div
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center ${currentStep > step.id
+                                        className={`w-8 h-8 sm:w-10 h-8 sm:h-10 rounded-full flex items-center justify-center ${currentStep > step.id
                                             ? 'bg-primary text-white'
                                             : currentStep === step.id
                                                 ? 'bg-primary/10 text-primary border-2 border-primary'
@@ -264,16 +416,16 @@ export default function NewListingPage() {
                                             }`}
                                     >
                                         {currentStep > step.id ? (
-                                            <CheckCircle className="w-5 h-5" />
+                                            <CheckCircle className="w-4 h-4" />
                                         ) : (
-                                            <step.icon className="w-5 h-5" />
+                                            <step.icon className="w-4 h-4" />
                                         )}
                                     </div>
-                                    <span className="hidden sm:block text-sm font-medium">{step.title}</span>
+                                    <span className="hidden sm:inline text-xs font-medium">{step.title}</span>
                                 </div>
                                 {index < steps.length - 1 && (
                                     <div
-                                        className={`w-12 sm:w-24 h-0.5 mx-2 ${currentStep > step.id ? 'bg-primary' : 'bg-gray-200'
+                                        className={`w-6 sm:w-24 h-0.5 mx-1 ${currentStep > step.id ? 'bg-primary' : 'bg-gray-200'
                                             }`}
                                     />
                                 )}
@@ -282,15 +434,36 @@ export default function NewListingPage() {
                     </div>
                 </div>
 
+                {/* Mobile Progress Indicator */}
+                <div className="sm:hidden bg-white rounded-xl border border-gray-200 p-3 mb-6">
+                    <div className="flex items-center gap-2">
+                        {steps.map((step, index) => (
+                            <div key={step.id} className="flex items-center">
+                                <div
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                                        currentStep > step.id
+                                            ? 'bg-primary text-white'
+                                            : currentStep === step.id
+                                                ? 'bg-primary text-white'
+                                                : 'bg-gray-200 text-gray-400'
+                                    }`}
+                                >
+                                    {currentStep > step.id ? '✓' : step.id}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Form Steps */}
                 <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="p-3 sm:p-6">
                         {/* Step 1: Basic Info */}
                         {currentStep === 1 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Informasi Dasar</h2>
+                            <div className="space-y-4 sm:space-y-6">
+                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Informasi Dasar</h2>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <Dropdown
                                         label="Merk"
                                         options={Object.keys(CAR_DATA).map(brand => ({ value: brand, label: brand }))}
@@ -319,7 +492,7 @@ export default function NewListingPage() {
                                     />
                                 </div>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <Dropdown
                                         label="Varian"
                                         options={
@@ -332,12 +505,12 @@ export default function NewListingPage() {
                                         placeholder={formData.model ? "Pilih varian" : "Pilih model dulu"}
                                         disabled={!formData.model}
                                     />
-                                    <Dropdown
+                                    <Input
                                         label="Tahun"
-                                        options={years}
+                                        placeholder="Contoh: 2024"
+                                        type="number"
                                         value={formData.year}
-                                        onChange={(val) => updateFormData('year', val)}
-                                        placeholder="Pilih tahun"
+                                        onChange={(e) => updateFormData('year', e.target.value)}
                                     />
                                 </div>
                             </div>
@@ -345,10 +518,10 @@ export default function NewListingPage() {
 
                         {/* Step 2: Details */}
                         {currentStep === 2 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Detail Mobil</h2>
+                            <div className="space-y-4 sm:space-y-6">
+                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Detail Mobil</h2>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <Dropdown
                                         label="Transmisi"
                                         options={Object.entries(TRANSMISSIONS).map(([k, v]) => ({ value: k, label: v }))}
@@ -365,7 +538,7 @@ export default function NewListingPage() {
                                     />
                                 </div>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <Dropdown
                                         label="Tipe Body"
                                         options={Object.entries(BODY_TYPES).map(([k, v]) => ({ value: k, label: v }))}
@@ -381,29 +554,13 @@ export default function NewListingPage() {
                                         placeholder="Pilih warna"
                                     />
                                 </div>
-
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    <Input
-                                        label="Kilometer"
-                                        placeholder="Contoh: 15000"
-                                        type="number"
-                                        value={formData.mileage}
-                                        onChange={(e) => updateFormData('mileage', e.target.value)}
-                                    />
-                                    <Input
-                                        label="Nomor Plat (Opsional)"
-                                        placeholder="Contoh: B 1234 ABC"
-                                        value={formData.plateNumber}
-                                        onChange={(e) => updateFormData('plateNumber', e.target.value)}
-                                    />
-                                </div>
                             </div>
                         )}
 
-                        {/* Step 3: Price & Location */}
+                        {/* Step 3: Price */}
                         {currentStep === 3 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Harga & Lokasi</h2>
+                            <div className="space-y-4 sm:space-y-6">
+                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Harga</h2>
 
                                 <div>
                                     <Input
@@ -423,40 +580,20 @@ export default function NewListingPage() {
                                         <span className="text-sm text-gray-600">Harga bisa nego</span>
                                     </label>
                                 </div>
-
-                                <Input
-                                    label="Kota/Kabupaten"
-                                    placeholder="Contoh: Jakarta Selatan"
-                                    value={formData.location}
-                                    onChange={(e) => updateFormData('location', e.target.value)}
-                                />
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Alamat Lengkap (Opsional)
-                                    </label>
-                                    <textarea
-                                        rows={3}
-                                        placeholder="Alamat detail untuk pembeli yang ingin melihat mobil"
-                                        value={formData.address}
-                                        onChange={(e) => updateFormData('address', e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                                    />
-                                </div>
                             </div>
                         )}
 
                         {/* Step 4: Photos & Description */}
                         {currentStep === 4 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Foto & Deskripsi</h2>
+                            <div className="space-y-4 sm:space-y-6">
+                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Foto & Deskripsi</h2>
 
                                 {/* Photo Upload */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Foto Mobil (Min. 3 foto)
                                     </label>
-                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
                                         {images.map((img, index) => (
                                             <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
                                                 <img src={img} alt="" className="w-full h-full object-cover" />
@@ -475,7 +612,7 @@ export default function NewListingPage() {
                                         ))}
                                         {images.length < 10 && (
                                             <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
-                                                <Upload className="w-6 h-6 text-gray-400 mb-1" />
+                                                <Upload className="w-5 h-5 text-gray-400 mb-1" />
                                                 <span className="text-xs text-gray-500">Upload</span>
                                                 <input
                                                     type="file"
@@ -492,36 +629,42 @@ export default function NewListingPage() {
                                     </p>
                                 </div>
 
-                                <Input
-                                    label="Judul Iklan"
-                                    placeholder="Contoh: Toyota Avanza 1.5 G CVT 2023 - Kondisi Istimewa"
-                                    value={formData.title}
-                                    onChange={(e) => updateFormData('title', e.target.value)}
-                                />
+                                {/* Auto-generated Title Display */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Judul Iklan (Otomatis)
+                                    </label>
+                                    <div className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 border border-gray-200 rounded-lg text-secondary text-sm sm:text-base font-medium">
+                                        {autoTitle}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Judul akan otomatis dibuat dari Merk, Model, dan Varian</p>
+                                </div>
 
+                                {/* Description */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Deskripsi
                                     </label>
                                     <textarea
-                                        rows={5}
-                                        placeholder="Jelaskan kondisi mobil, kelengkapan, alasan jual, dll."
+                                        id="description-textarea"
+                                        rows={10}
+                                        placeholder="Jelaskan spesifikasi, fitur, dan keunggulan mobil baru ini."
                                         value={formData.description}
                                         onChange={(e) => updateFormData('description', e.target.value)}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                                        className="w-full px-3 py-2 sm:px-4 py-2.5 sm:py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y min-h-[200px]"
                                     />
                                 </div>
 
                                 {/* Features Checklist */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-3 sm:mb-4">
                                         Fitur Mobil
                                     </label>
-                                    <div className="grid sm:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
                                         {Object.entries(CAR_FEATURES).map(([category, features]) => (
-                                            <div key={category} className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="font-medium text-secondary mb-3">{category}</h4>
-                                                <div className="space-y-2">
+                                            <div key={category} className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                                                <h4 className="font-medium text-secondary mb-2 sm:mb-3">{category}</h4>
+                                                <div className="space-y-1.5 sm:space-y-2">
                                                     {features.map((feature) => (
                                                         <label key={feature} className="flex items-center gap-2 cursor-pointer">
                                                             <input
@@ -537,9 +680,9 @@ export default function NewListingPage() {
                                                                         }
                                                                     })
                                                                 }}
-                                                                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary border-gray-300 rounded focus:ring-primary"
                                                             />
-                                                            <span className="text-sm text-gray-600">{feature}</span>
+                                                            <span className="text-xs sm:text-sm text-gray-600">{feature}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -553,24 +696,35 @@ export default function NewListingPage() {
                 </Card>
 
                 {/* Navigation Buttons */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 sm:gap-3">
                     <Button
                         variant="outline"
+                        size="sm"
                         onClick={goPrev}
                         disabled={currentStep === 1}
+                        className="flex-1"
                     >
                         Sebelumnya
                     </Button>
 
                     {currentStep < 4 ? (
-                        <Button onClick={goNext}>Selanjutnya</Button>
+                        <Button onClick={goNext} size="sm" className="flex-1">Selanjutnya</Button>
                     ) : (
-                        <Button onClick={handleSubmit} disabled={isSubmitting}>
+                        <Button onClick={handleSubmit} disabled={isSubmitting} size="sm" className="flex-1">
                             {isSubmitting ? 'Memproses...' : 'Pasang Iklan'}
                         </Button>
                     )}
                 </div>
             </div>
         </DashboardLayout>
+    )
+}
+
+// Export with Suspense wrapper
+export default function NewListingPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+            <NewListingForm />
+        </Suspense>
     )
 }

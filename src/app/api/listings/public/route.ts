@@ -19,6 +19,7 @@ export async function GET(req: Request) {
         const maxMileage = searchParams.get('maxMileage')
         const location = searchParams.get('location')
         const search = searchParams.get('search')
+        const id = searchParams.get('id')
         const sort = searchParams.get('sort') || 'newest'
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '12')
@@ -26,6 +27,10 @@ export async function GET(req: Request) {
         // Build where clause
         const where: any = {
             status: 'ACTIVE',
+        }
+
+        if (id) {
+            where.id = id
         }
 
         if (condition) {
@@ -126,11 +131,13 @@ export async function GET(req: Request) {
             year: listing.year,
             mileage: listing.mileage,
             location: listing.location,
-            image: listing.images[0] || null,
+            images: listing.images || [],
             condition: listing.condition,
             transmission: listing.transmission,
             fuelType: listing.fuelType,
             bodyType: listing.bodyType,
+            color: listing.color,
+            engineSize: listing.engineSize ? Number(listing.engineSize) : null,
             brand: listing.brand.name,
             model: listing.model.name,
             views: listing.views,

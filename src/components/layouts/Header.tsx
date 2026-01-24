@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
     Menu,
@@ -13,10 +13,12 @@ import {
     Car,
     LogOut,
     ChevronDown,
-    Plus
+    Plus,
+    LogIn
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { MobileLoginSheet, openLoginSheet } from '@/components/features/MobileLoginSheet'
 
 const navLinks = [
     { href: '/mobil-baru', label: 'Mobil Baru' },
@@ -34,6 +36,7 @@ export function Header() {
     const isActive = (href: string) => pathname === href
 
     return (
+        <>
         <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
             <div className="container">
                 <div className="flex items-center justify-between h-16">
@@ -70,7 +73,7 @@ export function Header() {
                         ) : session ? (
                             <>
                                 {/* Sell Button */}
-                                <Link href="/dashboard/listings/new">
+                                <Link href="/dashboard/listings/used">
                                     <Button size="sm">
                                         <Plus className="w-4 h-4 mr-1" />
                                         Jual Mobil
@@ -86,8 +89,8 @@ export function Header() {
                                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                                             {session.user.avatar ? (
                                                 <img
-                                                    src={session.user.avatar}
-                                                    alt={session.user.name}
+                                                    src={session.user.avatar || ''}
+                                                    alt={session.user.name || 'User'}
                                                     className="w-8 h-8 rounded-full object-cover"
                                                 />
                                             ) : (
@@ -199,7 +202,7 @@ export function Header() {
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2 px-4">
                             {session ? (
                                 <>
-                                    <Link href="/dashboard/listings/new" onClick={() => setMobileMenuOpen(false)}>
+                                    <Link href="/dashboard/listings/used" onClick={() => setMobileMenuOpen(false)}>
                                         <Button className="w-full">
                                             <Plus className="w-4 h-4 mr-1" />
                                             Jual Mobil
@@ -211,9 +214,16 @@ export function Header() {
                                 </>
                             ) : (
                                 <>
-                                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button variant="outline" className="w-full">Masuk</Button>
-                                    </Link>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => {
+                                            openLoginSheet()
+                                            setMobileMenuOpen(false)
+                                        }}
+                                    >
+                                        Masuk
+                                    </Button>
                                     <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
                                         <Button className="w-full">Daftar</Button>
                                     </Link>
@@ -224,5 +234,7 @@ export function Header() {
                 )}
             </div>
         </header>
+        <MobileLoginSheet />
+        </>
     )
 }

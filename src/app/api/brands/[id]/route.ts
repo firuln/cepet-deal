@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { ListingStatus } from '@prisma/client'
 
 /**
  * GET /api/brands/[id]
@@ -31,7 +32,7 @@ export async function GET(
                             select: {
                                 listings: {
                                     where: listingStatus !== 'all' ? {
-                                        status: listingStatus.toUpperCase()
+                                        status: listingStatus.toUpperCase() as ListingStatus
                                     } : undefined
                                 }
                             }
@@ -43,7 +44,7 @@ export async function GET(
                     select: {
                         listings: {
                             where: listingStatus !== 'all' ? {
-                                status: listingStatus.toUpperCase()
+                                status: listingStatus.toUpperCase() as ListingStatus
                             } : undefined
                         }
                     }
@@ -55,21 +56,21 @@ export async function GET(
             return NextResponse.json({ error: 'Brand not found' }, { status: 404 })
         }
 
-        let listings = []
-        let pagination = null
+        let listings: any[] = []
+        let pagination: any = null
 
         if (includeListings) {
             const total = await prisma.listing.count({
                 where: {
                     brandId: id,
-                    ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() })
+                    ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() as ListingStatus })
                 }
             })
 
             listings = await prisma.listing.findMany({
                 where: {
                     brandId: id,
-                    ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() })
+                    ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() as ListingStatus })
                 },
                 include: {
                     model: { select: { id: true, name: true, slug: true } },

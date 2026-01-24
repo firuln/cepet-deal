@@ -34,12 +34,8 @@ export async function GET(req: Request) {
                         name: true,
                         email: true,
                         phone: true,
-                        avatar: true
-                    }
-                },
-                _count: {
-                    select: {
-                        user: {
+                        avatar: true,
+                        _count: {
                             select: {
                                 listings: {
                                     where: {
@@ -68,7 +64,7 @@ export async function GET(req: Request) {
             verifiedAt: dealer.verifiedAt,
             createdAt: dealer.createdAt,
             user: dealer.user,
-            inventoryCount: dealer._count.user.listings.length
+            inventoryCount: dealer.user._count?.listings || 0
         }))
 
         return NextResponse.json(transformedDealers)

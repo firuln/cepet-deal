@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ListingStatus } from '@prisma/client'
 
 /**
  * GET /api/dealers/[id]
@@ -26,16 +27,12 @@ export async function GET(
                         email: false, // Don't expose email publicly
                         phone: true,
                         avatar: true,
-                        role: true
-                    }
-                },
-                _count: {
-                    select: {
-                        user: {
+                        role: true,
+                        _count: {
                             select: {
                                 listings: {
                                     where: listingStatus !== 'all' ? {
-                                        status: listingStatus.toUpperCase()
+                                        status: listingStatus.toUpperCase() as ListingStatus
                                     } : undefined
                                 }
                             }
@@ -53,14 +50,14 @@ export async function GET(
         const total = await prisma.listing.count({
             where: {
                 userId: dealer.userId,
-                ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() })
+                ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() as ListingStatus })
             }
         })
 
         const listings = await prisma.listing.findMany({
             where: {
                 userId: dealer.userId,
-                ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() })
+                ...(listingStatus !== 'all' && { status: listingStatus.toUpperCase() as ListingStatus })
             },
             include: {
                 brand: {
@@ -135,7 +132,7 @@ export async function GET(
                 verifiedAt: dealer.verifiedAt,
                 createdAt: dealer.createdAt,
                 user: dealer.user,
-                activeListingsCount: dealer._count.user.listings.length
+                activeListingsCount: dealer.user._count?.listings || 0
             },
             listings: transformedListings,
             pagination

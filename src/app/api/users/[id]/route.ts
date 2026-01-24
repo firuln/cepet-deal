@@ -71,8 +71,8 @@ export async function GET(
 
         // Transform BigInt for listings
         let transformedUser: any = { ...user }
-        if ('listings' in user && user.listings) {
-            transformedUser.listings = user.listings.map(listing => ({
+        if ('listings' in user && user.listings && Array.isArray(user.listings)) {
+            transformedUser.listings = user.listings.map((listing: any) => ({
                 ...listing,
                 price: listing.price.toString()
             }))

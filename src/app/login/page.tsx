@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
@@ -17,7 +17,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export default function LoginPage() {
+function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
@@ -151,5 +151,28 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 py-12 px-4">
+                <div className="w-full max-w-md">
+                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                        <div className="animate-pulse space-y-4">
+                            <div className="h-8 bg-gray-200 rounded w-1/3 mx-auto"></div>
+                            <div className="h-4 bg-gray-200 rounded w-2/3 mx-auto"></div>
+                            <div className="space-y-2 mt-8">
+                                <div className="h-12 bg-gray-200 rounded"></div>
+                                <div className="h-12 bg-gray-200 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
     )
 }

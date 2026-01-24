@@ -94,13 +94,11 @@ export async function POST(req: Request) {
             transmission,
             fuelType,
             bodyType,
-            mileage,
             color,
-            plateNumber,
+            mileage,
             price,
             negotiable,
-            location,
-            address,
+            location = 'Indonesia',
             title,
             description,
             images,
@@ -108,8 +106,8 @@ export async function POST(req: Request) {
             condition = 'USED',
         } = data
 
-        // Validation
-        const requiredFields = ['brand', 'model', 'year', 'transmission', 'fuelType', 'bodyType', 'mileage', 'color', 'price', 'location', 'title', 'description']
+        // Validation - removed mileage, location (now optional/defaults)
+        const requiredFields = ['brand', 'model', 'year', 'transmission', 'fuelType', 'bodyType', 'color', 'price', 'title', 'description']
         const missingFields = requiredFields.filter(field => !data[field])
 
         if (missingFields.length > 0) {
@@ -118,6 +116,17 @@ export async function POST(req: Request) {
                 { status: 400 }
             )
         }
+
+        // Only admin can create NEW car listings
+        if (condition === 'NEW' && user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Hanya admin yang dapat membuat iklan mobil baru' },
+                { status: 403 }
+            )
+        }
+
+        // Mileage: 0 for NEW cars, value from form for USED cars
+        const finalMileage = condition === 'NEW' ? 0 : (parseInt(mileage as string) || 0)
 
         // Validate images
         if (!images || images.length < 3) {
@@ -161,9 +170,7 @@ export async function POST(req: Request) {
         // Prepare description (store additional info in description)
         let fullDescription = description
         if (variant) fullDescription += `\n\nVarian: ${variant}`
-        if (plateNumber) fullDescription += `\n\nPlat Nomor: ${plateNumber}`
         if (negotiable === false) fullDescription += '\n\nHarga Fixed (Tidak Bisa Nego)'
-        if (address) fullDescription += `\n\nAlamat: ${address}`
 
         // Create listing
         const listing = await prisma.listing.create({
@@ -175,7 +182,7 @@ export async function POST(req: Request) {
                 fuelType: fuelType as any,
                 bodyType: bodyType as any,
                 condition: condition as any,
-                mileage: parseInt(mileage),
+                mileage: finalMileage,
                 color,
                 price: BigInt(parseInt(price)),
                 description: fullDescription.trim(),

@@ -22,7 +22,11 @@ export async function GET(req: Request) {
                 id: true,
                 name: true,
                 email: true,
+                username: true,
                 phone: true,
+                whatsapp: true,
+                location: true,
+                bio: true,
                 avatar: true,
                 role: true,
                 emailVerified: true,
@@ -65,9 +69,9 @@ export async function GET(req: Request) {
 
         const responseUser = {
             ...user,
-            activeListingsCount: user._count.listings.length,
+            activeListingsCount: user._count.listings,
             favoritesCount: user._count.favorites,
-            unreadMessagesCount: user._count.receivedMessages.length,
+            unreadMessagesCount: user._count.receivedMessages,
             _count: undefined
         }
 
@@ -94,26 +98,59 @@ export async function PUT(req: Request) {
         }
 
         const data = await req.json()
-        const { name, phone, avatar, currentPassword, newPassword } = data
+        const {
+            name,
+            username,
+            phone,
+            whatsapp,
+            location,
+            bio,
+            avatar,
+            currentPassword,
+            newPassword,
+            showroomName,
+            showroomAddress,
+            establishedYear,
+        } = data
 
         // Get current user
         const user = await prisma.user.findUnique({
             where: { email: session.user.email },
-            select: {
-                id: true,
-                password: true
-            }
+            include: { dealer: true }
         })
 
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
+        // Check if username is already taken by another user (only if field exists)
+        if (username && username !== user.username) {
+            try {
+                const existingUser = await prisma.user.findUnique({
+                    where: { username }
+                })
+
+                if (existingUser && existingUser.id !== user.id) {
+                    return NextResponse.json(
+                        { error: 'Username already taken' },
+                        { status: 400 }
+                    )
+                }
+            } catch (error: any) {
+                // If username field doesn't exist in database yet, skip validation
+                console.error('Username validation skipped:', error.message)
+            }
+        }
+
         // Prepare update data
         const updateData: any = {}
 
         if (name) updateData.name = name
+        if (username !== undefined) updateData.username = username || null
         if (phone !== undefined) updateData.phone = phone || null
+        if (whatsapp !== undefined) updateData.whatsapp = whatsapp || null
+        if (location !== undefined) updateData.location = location || null
+        if (bio !== undefined) updateData.bio = bio || null
         if (avatar !== undefined) updateData.avatar = avatar || null
 
         // Handle password change
@@ -146,12 +183,83 @@ export async function PUT(req: Request) {
                 id: true,
                 name: true,
                 email: true,
+                username: true,
                 phone: true,
+                whatsapp: true,
+                location: true,
+                bio: true,
                 avatar: true,
                 role: true,
-                updatedAt: true
+                updatedAt: true,
+                dealer: {
+                    select: {
+                        id: true,
+                        companyName: true,
+                        address: true,
+                        city: true,
+                        description: true,
+                        logo: true,
+                        verified: true,
+                        verifiedAt: true
+                    }
+                }
             }
         })
+
+        // Update dealer info if user is a dealer
+        if (user.role === 'DEALER') {
+            const dealerData: any = {}
+            if (showroomName !== undefined) dealerData.companyName = showroomName || null
+            if (showroomAddress !== undefined) dealerData.address = showroomAddress || null
+
+            if (Object.keys(dealerData).length > 0) {
+                if (user.dealer) {
+                    await prisma.dealer.update({
+                        where: { userId: user.id },
+                        data: dealerData
+                    })
+                } else {
+                    await prisma.dealer.create({
+                        data: {
+                            userId: user.id,
+                            ...dealerData
+                        }
+                    })
+                }
+
+                // Fetch updated user with dealer
+                const userWithDealer = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        username: true,
+                        phone: true,
+                        whatsapp: true,
+                        location: true,
+                        bio: true,
+                        avatar: true,
+                        role: true,
+                        updatedAt: true,
+                        dealer: {
+                            select: {
+                                id: true,
+                                companyName: true,
+                                address: true,
+                                city: true,
+                                description: true,
+                                logo: true,
+                                verified: true,
+                                verifiedAt: true
+                            }
+                        }
+                    }
+                })
+
+                return NextResponse.json(userWithDealer)
+            }
+        }
 
         return NextResponse.json(updatedUser)
     } catch (error: any) {

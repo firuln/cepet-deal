@@ -47,7 +47,7 @@ const buyerMenuItems: MenuItem[] = [
 const sellerMenuItems: MenuItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Car, label: 'Iklan Saya', href: '/dashboard/listings' },
-    { icon: Plus, label: 'Pasang Iklan', href: '/dashboard/listings/new' },
+    { icon: Plus, label: 'Pasang Iklan', href: '/dashboard/listings/used' },
     { icon: MessageSquare, label: 'Pesan', href: '/dashboard/messages', badge: 5 },
     { icon: Heart, label: 'Favorit', href: '/dashboard/favorites' },
 ]

@@ -47,7 +47,7 @@ interface Message {
 const sampleConversations: Conversation[] = [
     {
         id: '1',
-        contact: { name: 'Auto Prima Motor', avatar: null, isDealer: true },
+        contact: { name: 'Auto Prima Motor', avatar: undefined, isDealer: true },
         listing: {
             id: '1',
             title: 'Toyota Avanza 1.5 G CVT 2024',
@@ -60,7 +60,7 @@ const sampleConversations: Conversation[] = [
     },
     {
         id: '2',
-        contact: { name: 'Budi Santoso', avatar: null, isDealer: false },
+        contact: { name: 'Budi Santoso', avatar: undefined, isDealer: false },
         listing: {
             id: '2',
             title: 'Honda HR-V 1.5 SE CVT 2023',
@@ -73,7 +73,7 @@ const sampleConversations: Conversation[] = [
     },
     {
         id: '3',
-        contact: { name: 'Mobilindo Jaya', avatar: null, isDealer: true },
+        contact: { name: 'Mobilindo Jaya', avatar: undefined, isDealer: true },
         listing: {
             id: '3',
             title: 'Mitsubishi Xpander Cross 2024',

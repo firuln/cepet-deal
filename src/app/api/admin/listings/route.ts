@@ -19,6 +19,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url)
         const status = searchParams.get('status')
         const search = searchParams.get('search')
+        const condition = searchParams.get('condition')
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '20')
 
@@ -27,6 +28,10 @@ export async function GET(req: Request) {
 
         if (status) {
             where.status = status.toUpperCase()
+        }
+
+        if (condition) {
+            where.condition = condition.toUpperCase()
         }
 
         if (search) {
@@ -52,6 +57,8 @@ export async function GET(req: Request) {
                     select: {
                         id: true,
                         name: true,
+                        email: true,
+                        role: true,
                         dealer: {
                             select: { companyName: true }
                         }
@@ -69,13 +76,16 @@ export async function GET(req: Request) {
             year: listing.year,
             mileage: listing.mileage,
             location: listing.location,
-            image: listing.images[0] || null,
+            images: listing.images,
             status: listing.status,
+            condition: listing.condition,
             views: listing.views,
             createdAt: listing.createdAt,
-            seller: {
-                name: listing.user.dealer?.companyName || listing.user.name,
-                type: listing.user.dealer ? 'DEALER' : 'PERSONAL',
+            user: {
+                id: listing.user.id,
+                name: listing.user.name,
+                email: listing.user.email,
+                role: listing.user.role,
             }
         }))
 

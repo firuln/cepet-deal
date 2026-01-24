@@ -205,7 +205,7 @@ export default function DealerPage() {
                                         <Car className="w-4 h-4" />
                                         <span>{dealer.totalListings} mobil</span>
                                     </div>
-                                    <Badge variant={dealer.verified ? 'success' : 'outline'} size="sm">
+                                    <Badge variant={dealer.verified ? 'success' : 'warning'} size="sm">
                                         {dealer.verified ? 'Terverifikasi' : 'Pending'}
                                     </Badge>
                                 </div>

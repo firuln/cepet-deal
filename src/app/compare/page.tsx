@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { X, Plus, GitCompare } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { X, Plus, GitCompare, ArrowLeft } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { ConditionalLayout } from '@/components/layouts/ConditionalLayout'
 
 interface Listing {
     id: string
@@ -31,48 +31,73 @@ interface Listing {
     }
 }
 
+const COMPARE_STORAGE_KEY = 'compare_listings'
+
 export default function ComparePage() {
-    const searchParams = useSearchParams()
+    const router = useRouter()
+    const [listingIds, setListingIds] = useState<string[]>([])
     const [listings, setListings] = useState<Listing[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        const fetchListings = async () => {
-            const ids = searchParams.get('ids')?.split(',').filter(Boolean) || []
+        // Load compare list from localStorage
+        const stored = localStorage.getItem(COMPARE_STORAGE_KEY)
+        if (stored) {
+            try {
+                const ids = JSON.parse(stored)
+                setListingIds(ids)
+            } catch (e) {
+                console.error('Error parsing compare list:', e)
+            }
+        }
+        setLoading(false)
+    }, [])
 
-            if (ids.length === 0) {
-                setLoading(false)
+    useEffect(() => {
+        const fetchListings = async () => {
+            if (listingIds.length === 0) {
+                setListings([])
                 return
             }
 
             try {
-                const promises = ids.map(id =>
-                    fetch(`/api/listings/${id}`).then(res => res.json())
+                // Fetch by slug using the public API
+                const promises = listingIds.map(id =>
+                    fetch(`/api/listings/public?id=${id}`).then(res => res.json())
                 )
                 const results = await Promise.all(promises)
-                setListings(results.filter(Boolean))
+                // Extract listings from each response and filter
+                const allListings = results.flatMap(r => r.listings || [])
+                setListings(allListings)
             } catch (error) {
                 console.error('Error fetching listings:', error)
-            } finally {
-                setLoading(false)
+                setListings([])
             }
         }
 
         fetchListings()
-    }, [searchParams])
+    }, [listingIds])
 
     const removeCar = (id: string) => {
-        const updated = listings.filter(l => l.id !== id)
-        setListings(updated)
+        const updatedIds = listingIds.filter(item => item !== id)
+        setListingIds(updatedIds)
+        localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(updatedIds))
+
         // Update URL
-        const newIds = updated.map(l => l.id).join(',')
         const url = new URL(window.location.href)
-        if (newIds) {
-            url.searchParams.set('ids', newIds)
+        if (updatedIds.length > 0) {
+            url.searchParams.set('ids', updatedIds.join(','))
         } else {
             url.searchParams.delete('ids')
         }
         window.history.replaceState({}, '', url.toString())
+    }
+
+    const clearAll = () => {
+        setListingIds([])
+        setListings([])
+        localStorage.removeItem(COMPARE_STORAGE_KEY)
+        window.history.replaceState({}, '', window.location.pathname)
     }
 
     const formatCurrency = (amount: string | number) => {
@@ -127,8 +152,8 @@ export default function ComparePage() {
 
     if (loading) {
         return (
-            <ConditionalLayout>
-                <div className="max-w-7xl mx-auto py-8">
+            <div className="min-h-screen bg-gray-50 py-8">
+                <div className="max-w-7xl mx-auto px-4">
                     <div className="animate-pulse space-y-4">
                         <div className="h-8 bg-gray-200 rounded w-1/3"></div>
                         <div className="grid grid-cols-3 gap-4">
@@ -138,41 +163,49 @@ export default function ComparePage() {
                         </div>
                     </div>
                 </div>
-            </ConditionalLayout>
+            </div>
         )
     }
 
-    if (listings.length === 0) {
+    if (listingIds.length === 0) {
         return (
-            <ConditionalLayout>
-                <div className="max-w-2xl mx-auto py-16 text-center">
+            <div className="min-h-screen bg-gray-50 py-16">
+                <div className="max-w-2xl mx-auto px-4 text-center">
                     <GitCompare className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                    <h1 className="text-2xl font-bold text-secondary mb-2">Bandingkan Mobil</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Bandingkan Mobil</h1>
                     <p className="text-gray-600 mb-6">
                         Pilih mobil yang ingin Anda bandingkan (maksimal 3 mobil)
                     </p>
-                    <Button href="/mobil-bekas">Cari Mobil</Button>
+                    <Link href="/mobil-bekas">
+                        <Button>Cari Mobil</Button>
+                    </Link>
                 </div>
-            </ConditionalLayout>
+            </div>
         )
     }
 
     return (
-        <ConditionalLayout>
-            <div className="max-w-7xl mx-auto py-6 space-y-6">
+        <div className="min-h-screen bg-gray-50 py-8">
+            <div className="max-w-7xl mx-auto px-4 space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-secondary">Bandingkan Mobil</h1>
+                        <Link href="/mobil-bekas" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-2">
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            Kembali ke daftar mobil
+                        </Link>
+                        <h1 className="text-2xl font-bold text-gray-900">Bandingkan Mobil</h1>
                         <p className="text-gray-600">
                             Membandingkan {listings.length} mobil
                         </p>
                     </div>
                     {listings.length < 3 && (
-                        <Button href="/mobil-bekas" variant="outline">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Tambah Mobil
-                        </Button>
+                        <Link href="/mobil-bekas">
+                            <Button variant="outline">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Tambah Mobil
+                            </Button>
+                        </Link>
                     )}
                 </div>
 
@@ -188,14 +221,14 @@ export default function ComparePage() {
                             </button>
                             <CardContent className="p-4">
                                 <img
-                                    src={listing.images[0] || '/placeholder-car.png'}
+                                    src={listing.images?.[0] || '/placeholder-car.png'}
                                     alt={listing.title}
                                     className="w-full h-48 object-cover rounded-lg mb-3"
                                 />
-                                <h3 className="font-semibold text-secondary mb-1 line-clamp-2">
+                                <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
                                     {listing.title}
                                 </h3>
-                                <p className="text-lg font-bold text-primary">
+                                <p className="text-lg font-bold text-orange-500">
                                     {formatCurrency(listing.price)}
                                 </p>
                                 <p className="text-sm text-gray-500">
@@ -212,7 +245,7 @@ export default function ComparePage() {
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b bg-gray-50">
-                                    <th className="p-4 text-left font-semibold text-secondary w-48">
+                                    <th className="p-4 text-left font-semibold text-gray-900 w-48">
                                         Spesifikasi
                                     </th>
                                     {listings.map((listing) => (
@@ -222,7 +255,7 @@ export default function ComparePage() {
                                                 alt={listing.title}
                                                 className="w-full h-32 object-cover rounded-lg mb-2"
                                             />
-                                            <p className="font-semibold text-sm text-secondary line-clamp-2">
+                                            <p className="font-semibold text-sm text-gray-900 line-clamp-2">
                                                 {listing.title}
                                             </p>
                                         </th>
@@ -249,7 +282,7 @@ export default function ComparePage() {
                                                 <td
                                                     key={listing.id}
                                                     className={`p-4 text-center ${
-                                                        isDifferent ? 'font-semibold text-primary bg-primary/5' : ''
+                                                        isDifferent ? 'font-semibold text-orange-500 bg-orange-50' : ''
                                                     }`}
                                                 >
                                                     {value}
@@ -267,16 +300,13 @@ export default function ComparePage() {
                 <div className="flex justify-center gap-4">
                     <Button
                         variant="outline"
-                        onClick={() => {
-                            setListings([])
-                            window.history.replaceState({}, '', window.location.pathname)
-                        }}
+                        onClick={clearAll}
                     >
                         <X className="w-4 h-4 mr-2" />
                         Hapus Semua
                     </Button>
                 </div>
             </div>
-        </ConditionalLayout>
+        </div>
     )
 }

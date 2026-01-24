@@ -22,7 +22,7 @@ import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Badge, Modal, Dropdown } from '@/components/ui'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
-type ListingStatus = 'ACTIVE' | 'PENDING' | 'SOLD' | 'EXPIRED'
+type ListingStatus = 'ACTIVE' | 'PENDING' | 'SOLD' | 'EXPIRED' | 'REJECTED'
 
 interface Listing {
     id: string
@@ -35,6 +35,7 @@ interface Listing {
     views: number
     inquiries: number
     status: ListingStatus
+    condition: 'NEW' | 'USED'
     image: string
     createdAt: string
     canEdit: boolean
@@ -42,11 +43,12 @@ interface Listing {
     canMarkSold: boolean
 }
 
-const statusConfig: Record<ListingStatus, { label: string; variant: 'success' | 'warning' | 'primary' | 'outline'; icon: typeof CheckCircle }> = {
+const statusConfig: Record<ListingStatus, { label: string; variant: 'success' | 'warning' | 'primary' | 'info' | 'danger'; icon: typeof CheckCircle }> = {
     ACTIVE: { label: 'Aktif', variant: 'success', icon: CheckCircle },
     PENDING: { label: 'Menunggu', variant: 'warning', icon: Clock },
     SOLD: { label: 'Terjual', variant: 'primary', icon: CheckCircle },
-    EXPIRED: { label: 'Kadaluarsa', variant: 'outline', icon: XCircle },
+    EXPIRED: { label: 'Kadaluarsa', variant: 'info', icon: XCircle },
+    REJECTED: { label: 'Ditolak', variant: 'danger', icon: XCircle },
 }
 
 const filterOptions = [
@@ -55,6 +57,7 @@ const filterOptions = [
     { value: 'PENDING', label: 'Menunggu' },
     { value: 'SOLD', label: 'Terjual' },
     { value: 'EXPIRED', label: 'Kadaluarsa' },
+    { value: 'REJECTED', label: 'Ditolak' },
 ]
 
 export default function MyListingsPage() {
@@ -201,7 +204,7 @@ export default function MyListingsPage() {
                             Kelola semua iklan mobil Anda
                         </p>
                     </div>
-                    <Link href="/dashboard/listings/new">
+                    <Link href="/dashboard/listings/used">
                         <Button>
                             <Plus className="w-4 h-4 mr-2" />
                             Pasang Iklan Baru
@@ -300,7 +303,7 @@ export default function MyListingsPage() {
                                     : 'Mulai jual mobil Anda sekarang'}
                             </p>
                             {!searchQuery && statusFilter === 'all' && (
-                                <Link href="/dashboard/listings/new">
+                                <Link href="/dashboard/listings/used">
                                     <Button>
                                         <Plus className="w-4 h-4 mr-2" />
                                         Pasang Iklan
@@ -417,7 +420,7 @@ export default function MyListingsPage() {
 
                                                     {/* View Button */}
                                                     <Link
-                                                        href={`/mobil-bekas/${listing.slug}`}
+                                                        href={listing.condition === 'NEW' ? `/mobil-baru/${listing.slug}` : `/mobil-bekas/${listing.slug}`}
                                                         target="_blank"
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors"
                                                     >

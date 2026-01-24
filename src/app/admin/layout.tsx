@@ -17,6 +17,9 @@ import {
     Shield,
     BarChart3,
     Bell,
+    FileText,
+    Flag,
+    Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -31,7 +34,9 @@ const menuItems = [
     { icon: Users, label: 'Kelola User', href: '/admin/users' },
     { icon: Car, label: 'Kelola Iklan', href: '/admin/listings' },
     { icon: Building2, label: 'Kelola Dealer', href: '/admin/dealers' },
-    { icon: BarChart3, label: 'Laporan', href: '/admin/reports' },
+    { icon: FileText, label: 'Kelola Artikel', href: '/admin/articles' },
+    { icon: Star, label: 'Kelola Review', href: '/admin/reviews/list' },
+    { icon: Flag, label: 'Laporan', href: '/admin/reports/list' },
     { icon: Settings, label: 'Pengaturan', href: '/admin/settings' },
 ]
 
