@@ -15,6 +15,12 @@ import {
     FileText,
     CheckCircle,
     Loader2,
+    Calendar,
+    AlertTriangle,
+    ChevronDown,
+    ChevronUp,
+    Save,
+    Eye,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
@@ -25,13 +31,56 @@ import {
 } from '@/lib/constants'
 
 const steps = [
-    { id: 1, title: 'Informasi Dasar', icon: Car },
-    { id: 2, title: 'Detail Mobil', icon: Info },
-    { id: 3, title: 'Harga & Lokasi', icon: DollarSign },
-    { id: 4, title: 'Foto & Deskripsi', icon: Camera },
+    { id: 1, title: 'Mobil', icon: Car, subtitle: 'Merk, model, tahun' },
+    { id: 2, title: 'Detail', icon: Info, subtitle: 'Spesifikasi' },
+    { id: 3, title: 'Harga', icon: DollarSign, subtitle: 'Lokasi' },
+    { id: 4, title: 'Foto', icon: Camera, subtitle: 'Deskripsi' },
+    { id: 5, title: 'Riwayat', icon: FileText, subtitle: 'Opsional' },
+    { id: 6, title: 'Preview', icon: Eye, subtitle: 'Review' },
 ]
 
-const years = Array.from({ length: 30 }, (_, i) => ({
+// Vehicle History Options
+const PEMAKAIAN_OPTIONS = [
+    { value: 'Tangan ke-1', label: 'Tangan ke-1' },
+    { value: 'Tangan ke-2', label: 'Tangan ke-2' },
+    { value: 'Tangan ke-3', label: 'Tangan ke-3' },
+    { value: 'Tangan ke-4+', label: 'Tangan ke-4+' },
+]
+
+const BPKB_STATUS_OPTIONS = [
+    { value: 'Asli', label: 'Asli (BPKB Fisik)' },
+    { value: 'Fotokopi', label: 'Fotokopi' },
+    { value: 'Prosess', label: 'Dalam Proses' },
+    { value: 'Leasing', label: 'Masih di Leasing' },
+]
+
+const KONDISI_OPTIONS = [
+    { value: 'Baik', label: 'Baik' },
+    { value: 'Sangat Baik', label: 'Sangat Baik' },
+    { value: 'Perlu Servis', label: 'Perlu Servis' },
+]
+
+const KONDISI_BAN_OPTIONS = [
+    { value: '90%', label: '90% - Seperti Baru' },
+    { value: '80%', label: '80% - Masih Tebal' },
+    { value: '60%', label: '60% - Masih Aman' },
+    { value: '40%', label: '40% - Hampir Habis' },
+    { value: 'Perlu Ganti', label: 'Perlu Ganti' },
+]
+
+// Quick Years (recent first, more practical)
+const quickYears = [
+    { value: '2025', label: '2025' },
+    { value: '2024', label: '2024' },
+    { value: '2023', label: '2023' },
+    { value: '2022', label: '2022' },
+    { value: '2021', label: '2021' },
+    { value: '2020', label: '2020' },
+    { value: '2019', label: '2019' },
+    { value: '2018', label: '2018' },
+]
+
+const allYears = Array.from({ length: 30 }, (_, i) => ({
     value: String(2025 - i),
     label: String(2025 - i),
 }))
@@ -51,7 +100,7 @@ const colors = [
     { value: 'lainnya', label: 'Lainnya' },
 ]
 
-// Comprehensive Car Data - Sama dengan di edit page
+// Car Data
 const CAR_DATA: Record<string, Record<string, string[]>> = {
     "Toyota": {
         "AGYA": ["1.0 E", "1.0 G", "1.0 S", "1.2 G", "1.0 TRD Sportivo", "1.2 TRD Sportivo", "1.2 G STD", "1.2 TRD", "1.0 G TRD", "1.2 GR", "1.2 G TRD", "1.2 GR Sport"],
@@ -137,7 +186,6 @@ const CAR_DATA: Record<string, Record<string, string[]>> = {
         "IONIQ 5": ["Prime Standard", "Prime Long Range", "Signature Standard", "Signature Long Range"],
         "PALISADE": ["Prime", "Signature", "Signature AWD"],
         "SANTA FE": ["Gasoline G 2.5", "Diesel D 2.2"],
-        "TUCSON": ["Gasoline", "Diesel", "GLS", "XG"],
         "GETZ": ["1.4 GL", "1.6 GLS"],
         "ATOZ": ["1.0", "1.1"],
         "ACCENT": ["1.5", "Verna"],
@@ -269,25 +317,76 @@ const CAR_DATA: Record<string, Record<string, string[]>> = {
     },
 }
 
-// Car Features by Category
-const CAR_FEATURES = {
-    'Eksterior': ['LED Headlamp', 'DRL', 'Chrome Grille', 'Alloy Wheels 17"', 'Rear Spoiler', 'Sunroof', 'Roof Rail', 'Fog Lamp'],
-    'Interior': ['Fabric Seat', 'Leather Seat', 'Automatic AC', 'Manual AC', 'Push Start Button', 'Multi-info Display', 'Cruise Control', 'Power Window'],
-    'Keselamatan': ['Dual Airbag', 'ABS + EBD', 'Hill Start Assist', 'Rear Camera', 'Parking Sensor', 'VSA', 'ESP', 'ISOFIX'],
-    'Hiburan': ['8 inch Touchscreen', '9 inch Touchscreen', 'Bluetooth', 'USB Port', 'Steering Audio Control', 'Apple CarPlay', 'Android Auto', '6 Speakers'],
+// Essential features (always visible)
+const CAR_FEATURES_ESSENTIAL = {
+    'Eksterior': ['LED Headlamp', 'DRL', 'Chrome Grille', 'Alloy Wheels'],
+    'Interior': ['Leather Seat', 'Automatic AC', 'Push Start Button'],
+    'Keselamatan': ['Dual Airbag', 'ABS + EBD', 'Rear Camera'],
+    'Hiburan': ['Touchscreen', 'Bluetooth', 'Apple CarPlay / Android Auto'],
 }
+
+// Full features list (expandable)
+const CAR_FEATURES_FULL = {
+    'Eksterior': [
+        'LED Headlamp',
+        'DRL',
+        'Chrome Grille',
+        'Alloy Wheels 17"',
+        'Rear Spoiler',
+        'Sunroof',
+        'Roof Rail',
+        'Fog Lamp',
+    ],
+    'Interior': [
+        'Fabric Seat',
+        'Leather Seat',
+        'Automatic AC',
+        'Manual AC',
+        'Push Start Button',
+        'Multi-info Display',
+        'Cruise Control',
+        'Power Window',
+    ],
+    'Keselamatan': [
+        'Dual Airbag',
+        'ABS + EBD',
+        'Hill Start Assist',
+        'Rear Camera',
+        'Parking Sensor',
+        'VSA',
+        'ESP',
+        'ISOFIX',
+    ],
+    'Hiburan': [
+        '8 inch Touchscreen',
+        '9 inch Touchscreen',
+        'Bluetooth',
+        'USB Port',
+        'Steering Audio Control',
+        'Apple CarPlay',
+        'Android Auto',
+        '6 Speakers',
+    ],
+}
+
+// Auto-save key
+const DRAFT_KEY = 'listing_draft_used'
 
 function NewUsedListingForm() {
     const router = useRouter()
     const [currentStep, setCurrentStep] = useState(1)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [images, setImages] = useState<string[]>([])
+    const [uploading, setUploading] = useState(false)
     const [selectedFeatures, setSelectedFeatures] = useState<Record<string, string[]>>({
         'Eksterior': [],
         'Interior': [],
         'Keselamatan': [],
         'Hiburan': [],
     })
+    const [lastSaved, setLastSaved] = useState<Date | null>(null)
+    const [showAllYears, setShowAllYears] = useState(false)
+    const [showAllFeatures, setShowAllFeatures] = useState(false)
 
     // Form data
     const [formData, setFormData] = useState({
@@ -308,30 +407,88 @@ function NewUsedListingForm() {
         location: '',
         // Step 4
         description: '',
+        // Step 5
+        pajakStnk: '',
+        pemakaian: '',
+        serviceTerakhir: '',
+        bpkbStatus: '',
+        kecelakaan: false,
+        kondisiMesin: '',
+        kondisiKaki: '',
+        kondisiAc: '',
+        kondisiBan: '',
     })
+
+    // Auto-save draft
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const draft = { formData, images, selectedFeatures, currentStep }
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+            setLastSaved(new Date())
+        }, 10000) // Save every 10 seconds
+        return () => clearInterval(timer)
+    }, [formData, images, selectedFeatures, currentStep])
+
+    // Load draft on mount
+    useEffect(() => {
+        const savedDraft = localStorage.getItem(DRAFT_KEY)
+        if (savedDraft) {
+            try {
+                const draft = JSON.parse(savedDraft)
+                if (confirm('Draft tersimpan. Lanjutkan isi form?')) {
+                    setFormData(draft.formData)
+                    setImages(draft.images || [])
+                    setSelectedFeatures(draft.selectedFeatures)
+                    setCurrentStep(draft.currentStep)
+                }
+            } catch (e) {
+                console.error('Failed to load draft', e)
+            }
+        }
+    }, [])
 
     const updateFormData = (field: string, value: string | boolean) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
     }
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (!files) return
 
-        Array.from(files).forEach((file) => {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setImages((prev) => [...prev, reader.result as string])
+        setUploading(true)
+
+        try {
+            for (const file of Array.from(files)) {
+                const formData = new FormData()
+                formData.append('file', file)
+
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                })
+
+                if (!res.ok) {
+                    const errorData = await res.json()
+                    throw new Error(errorData.error || 'Failed to upload image')
+                }
+
+                const data = await res.json()
+                setImages((prev) => [...prev, data.url])
             }
-            reader.readAsDataURL(file)
-        })
+        } catch (error) {
+            console.error('Error uploading image:', error)
+            alert(error instanceof Error ? error.message : 'Failed to upload image')
+        } finally {
+            setUploading(false)
+            // Clear input
+            e.target.value = ''
+        }
     }
 
     const removeImage = (index: number) => {
         setImages((prev) => prev.filter((_, i) => i !== index))
     }
 
-    // Auto-generate title from brand, model, variant, year
     const autoTitle = `${formData.brand} ${formData.model} ${formData.variant} ${formData.year}`.trim()
 
     const handleSubmit = async () => {
@@ -347,9 +504,7 @@ function NewUsedListingForm() {
 
             const res = await fetch('/api/listings/used', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             })
 
@@ -358,79 +513,71 @@ function NewUsedListingForm() {
                 throw new Error(errorData.error || 'Gagal menyimpan iklan')
             }
 
+            // Clear draft on success
+            localStorage.removeItem(DRAFT_KEY)
+
             router.push('/dashboard/listings?success=true')
         } catch (error) {
             console.error('Error creating listing:', error)
-            alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan iklan')
+            alert(error instanceof Error ? error.message : 'Terjadi kesalahan')
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    const goNext = () => setCurrentStep((prev) => Math.min(4, prev + 1))
+    const goNext = () => setCurrentStep((prev) => Math.min(6, prev + 1))
     const goPrev = () => setCurrentStep((prev) => Math.max(1, prev - 1))
+
+    const progressPercent = Math.round(((currentStep - 1) / 5) * 100)
 
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link href="/dashboard/listings">
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                            <ArrowLeft className="w-5 h-5 text-gray-600" />
-                        </button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-secondary">Pasang Iklan Mobil Bekas</h1>
-                        <p className="text-gray-500 mt-1">Lengkapi informasi mobil bekas yang ingin Anda jual</p>
-                    </div>
-                </div>
-
-                {/* Progress Steps */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between">
-                        {steps.map((step, index) => (
-                            <div key={step.id} className="flex items-center">
-                                <div
-                                    className={`flex items-center gap-2 ${currentStep >= step.id ? 'text-primary' : 'text-gray-400'
-                                        }`}
-                                >
-                                    <div
-                                        className={`w-10 h-10 rounded-full flex items-center justify-center ${currentStep > step.id
-                                            ? 'bg-primary text-white'
-                                            : currentStep === step.id
-                                                ? 'bg-primary/10 text-primary border-2 border-primary'
-                                                : 'bg-gray-100 text-gray-400'
-                                            }`}
-                                    >
-                                        {currentStep > step.id ? (
-                                            <CheckCircle className="w-5 h-5" />
-                                        ) : (
-                                            <step.icon className="w-5 h-5" />
-                                        )}
-                                    </div>
-                                    <span className="hidden sm:block text-sm font-medium">{step.title}</span>
-                                </div>
-                                {index < steps.length - 1 && (
-                                    <div
-                                        className={`w-12 sm:w-24 h-0.5 mx-2 ${currentStep > step.id ? 'bg-primary' : 'bg-gray-200'
-                                            }`}
-                                    />
-                                )}
+            <div className="min-h-screen bg-gray-50">
+                {/* Sticky Header - Minimal */}
+                <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+                    <div className="container max-w-2xl">
+                        {/* Top bar */}
+                        <div className="flex items-center justify-between py-3">
+                            <button
+                                onClick={() => currentStep > 1 ? goPrev() : router.back()}
+                                className="p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                            </button>
+                            <div className="text-center">
+                                <p className="text-sm font-semibold text-secondary">{steps[currentStep - 1].title}</p>
+                                <p className="text-xs text-gray-500">{steps[currentStep - 1].subtitle}</p>
                             </div>
-                        ))}
+                            <div className="w-9"></div>
+                        </div>
+
+                        {/* Progress bar - Clean */}
+                        <div className="pb-3">
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                                <span>Langkah {currentStep} dari 5</span>
+                                <span className="font-medium text-primary">{progressPercent}%</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                                    style={{ width: `${progressPercent}%` }}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Form Steps */}
-                <Card>
-                    <CardContent className="p-6">
-                        {/* Step 1: Basic Info */}
-                        {currentStep === 1 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Informasi Dasar</h2>
-
-                                <div className="grid sm:grid-cols-2 gap-4">
+                {/* Main Content */}
+                <div className="container max-w-2xl px-4 py-6">
+                    {/* Step 1: Mobil (Brand, Model, Variant, Year) */}
+                    {currentStep === 1 && (
+                        <div className="space-y-4">
+                            {/* Brand & Model Cards */}
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Merk & Model</p>
+                                </div>
+                                <div className="p-4 space-y-3">
                                     <Dropdown
                                         label="Merk"
                                         options={Object.keys(CAR_DATA).map(brand => ({ value: brand, label: brand }))}
@@ -458,8 +605,14 @@ function NewUsedListingForm() {
                                         disabled={!formData.brand}
                                     />
                                 </div>
+                            </div>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
+                            {/* Variant & Year Cards */}
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Varian & Tahun</p>
+                                </div>
+                                <div className="p-4 space-y-3">
                                     <Dropdown
                                         label="Varian"
                                         options={
@@ -472,128 +625,194 @@ function NewUsedListingForm() {
                                         placeholder={formData.model ? "Pilih varian" : "Pilih model dulu"}
                                         disabled={!formData.model}
                                     />
-                                    <Dropdown
-                                        label="Tahun"
-                                        options={years}
-                                        value={formData.year}
-                                        onChange={(val) => updateFormData('year', val)}
-                                        placeholder="Pilih tahun"
-                                    />
+
+                                    {/* Year Quick Select */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Tahun</label>
+                                        <div className="grid grid-cols-4 gap-2 mb-2">
+                                            {quickYears.map((year) => (
+                                                <button
+                                                    key={year.value}
+                                                    type="button"
+                                                    onClick={() => updateFormData('year', year.value)}
+                                                    className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+                                                        formData.year === year.value
+                                                            ? 'bg-primary text-white border-primary'
+                                                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                                                    }`}
+                                                >
+                                                    {year.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllYears(!showAllYears)}
+                                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                                        >
+                                            {showAllYears ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                            {showAllYears ? 'Tutup' : 'Lihat semua tahun'}
+                                        </button>
+                                        {showAllYears && (
+                                            <div className="mt-2 grid grid-cols-4 gap-2">
+                                                {allYears.filter(y => !quickYears.find(qy => qy.value === y.value)).map((year) => (
+                                                    <button
+                                                        key={year.value}
+                                                        type="button"
+                                                        onClick={() => updateFormData('year', year.value)}
+                                                        className={`py-2 px-3 text-sm font-medium rounded-lg border transition-all ${
+                                                            formData.year === year.value
+                                                                ? 'bg-primary text-white border-primary'
+                                                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                                                        }`}
+                                                    >
+                                                        {year.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Step 2: Details */}
-                        {currentStep === 2 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Detail Mobil</h2>
-
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    <Dropdown
-                                        label="Transmisi"
-                                        options={Object.entries(TRANSMISSIONS).map(([k, v]) => ({ value: k, label: v }))}
-                                        value={formData.transmission}
-                                        onChange={(val) => updateFormData('transmission', val)}
-                                        placeholder="Pilih transmisi"
-                                    />
-                                    <Dropdown
-                                        label="Bahan Bakar"
-                                        options={Object.entries(FUEL_TYPES).map(([k, v]) => ({ value: k, label: v }))}
-                                        value={formData.fuelType}
-                                        onChange={(val) => updateFormData('fuelType', val)}
-                                        placeholder="Pilih bahan bakar"
-                                    />
+                    {/* Step 2: Detail Mobil */}
+                    {currentStep === 2 && (
+                        <div className="space-y-4">
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="rounded-t-xl px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Spesifikasi</p>
                                 </div>
+                                <div className="p-4 space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Dropdown
+                                            label="Transmisi"
+                                            options={Object.entries(TRANSMISSIONS).map(([k, v]) => ({ value: k, label: v }))}
+                                            value={formData.transmission}
+                                            onChange={(val) => updateFormData('transmission', val)}
+                                            placeholder="Pilih"
+                                        />
+                                        <Dropdown
+                                            label="Bahan Bakar"
+                                            options={Object.entries(FUEL_TYPES).map(([k, v]) => ({ value: k, label: v }))}
+                                            value={formData.fuelType}
+                                            onChange={(val) => updateFormData('fuelType', val)}
+                                            placeholder="Pilih"
+                                        />
+                                    </div>
 
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    <Dropdown
-                                        label="Tipe Body"
-                                        options={Object.entries(BODY_TYPES).map(([k, v]) => ({ value: k, label: v }))}
-                                        value={formData.bodyType}
-                                        onChange={(val) => updateFormData('bodyType', val)}
-                                        placeholder="Pilih tipe body"
-                                    />
-                                    <Dropdown
-                                        label="Warna"
-                                        options={colors}
-                                        value={formData.color}
-                                        onChange={(val) => updateFormData('color', val)}
-                                        placeholder="Pilih warna"
-                                    />
-                                </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Dropdown
+                                            label="Tipe Body"
+                                            options={Object.entries(BODY_TYPES).map(([k, v]) => ({ value: k, label: v }))}
+                                            value={formData.bodyType}
+                                            onChange={(val) => updateFormData('bodyType', val)}
+                                            placeholder="Pilih"
+                                        />
+                                        <Dropdown
+                                            label="Warna"
+                                            options={colors}
+                                            value={formData.color}
+                                            onChange={(val) => updateFormData('color', val)}
+                                            placeholder="Pilih"
+                                        />
+                                    </div>
 
-                                <Input
-                                    label="Kilometer"
-                                    placeholder="Contoh: 15000"
-                                    type="number"
-                                    value={formData.mileage}
-                                    onChange={(e) => updateFormData('mileage', e.target.value)}
-                                    required
-                                />
-                            </div>
-                        )}
-
-                        {/* Step 3: Price & Location */}
-                        {currentStep === 3 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Harga & Lokasi</h2>
-
-                                <div>
                                     <Input
-                                        label="Harga (Rp)"
-                                        placeholder="Contoh: 250000000"
+                                        label="Kilometer"
+                                        placeholder="Contoh: 25000"
                                         type="number"
-                                        value={formData.price}
-                                        onChange={(e) => updateFormData('price', e.target.value)}
+                                        value={formData.mileage}
+                                        onChange={(e) => updateFormData('mileage', e.target.value)}
+                                        required
                                     />
-                                    <label className="flex items-center gap-2 mt-3">
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 3: Harga & Lokasi */}
+                    {currentStep === 3 && (
+                        <div className="space-y-4">
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Harga</p>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Harga Jual (Rp)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={formData.price}
+                                                onChange={(e) => updateFormData('price', e.target.value.replace(/\D/g, ''))}
+                                                placeholder="250000000"
+                                                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg font-semibold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                            />
+                                            {formData.price && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                                    {parseInt(formData.price).toLocaleString('id-ID')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={formData.negotiable}
                                             onChange={(e) => updateFormData('negotiable', e.target.checked)}
                                             className="w-4 h-4 text-primary rounded"
                                         />
-                                        <span className="text-sm text-gray-600">Harga bisa nego</span>
+                                        <span className="text-sm text-gray-600">Bisa nego</span>
                                     </label>
                                 </div>
-
-                                <Input
-                                    label="Kota/Kabupaten"
-                                    placeholder="Contoh: Jakarta Selatan"
-                                    value={formData.location}
-                                    onChange={(e) => updateFormData('location', e.target.value)}
-                                />
                             </div>
-                        )}
 
-                        {/* Step 4: Photos & Description */}
-                        {currentStep === 4 && (
-                            <div className="space-y-6">
-                                <h2 className="text-lg font-semibold text-secondary">Foto & Deskripsi</h2>
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="rounded-t-xl px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Lokasi</p>
+                                </div>
+                                <div className="p-4">
+                                    <Input
+                                        label="Kota/Kabupaten"
+                                        placeholder="Contoh: Jakarta Selatan"
+                                        value={formData.location}
+                                        onChange={(e) => updateFormData('location', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                {/* Photo Upload */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Foto Mobil (Min. 3 foto)
-                                    </label>
-                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {/* Step 4: Foto & Deskripsi */}
+                    {currentStep === 4 && (
+                        <div className="space-y-4">
+                            {/* Photo Upload */}
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Foto Mobil</p>
+                                    <p className="text-xs text-gray-500">Minimal 3 foto</p>
+                                </div>
+                                <div className="p-4">
+                                    <div className="grid grid-cols-3 gap-3">
                                         {images.map((img, index) => (
                                             <div key={index} className="relative aspect-square rounded-lg overflow-hidden">
                                                 <img src={img} alt="" className="w-full h-full object-cover" />
                                                 <button
                                                     onClick={() => removeImage(index)}
-                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
+                                                    className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg"
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </button>
                                                 {index === 0 && (
-                                                    <Badge className="absolute bottom-1 left-1" size="sm" variant="primary">
+                                                    <Badge className="absolute bottom-2 left-2" size="sm" variant="primary">
                                                         Utama
                                                     </Badge>
                                                 )}
                                             </div>
                                         ))}
-                                        {images.length < 10 && (
+                                        {images.length < 10 && !uploading && (
                                             <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
                                                 <Upload className="w-6 h-6 text-gray-400 mb-1" />
                                                 <span className="text-xs text-gray-500">Upload</span>
@@ -606,48 +825,106 @@ function NewUsedListingForm() {
                                                 />
                                             </label>
                                         )}
+                                        {uploading && (
+                                            <div className="aspect-square border-2 border-dashed border-primary bg-primary/5 rounded-lg flex flex-col items-center justify-center">
+                                                <Loader2 className="w-6 h-6 text-primary animate-spin mb-1" />
+                                                <span className="text-xs text-primary font-medium">Mengupload...</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        Format: JPG, PNG. Ukuran maks: 5MB per foto.
-                                    </p>
                                 </div>
+                            </div>
 
-                                {/* Auto-generated Title */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Judul Iklan (Otomatis)
-                                    </label>
-                                    <div className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-secondary text-sm font-medium">
-                                        {autoTitle || 'Judul iklan akan otomatis dibuat'}
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-1">Judul akan otomatis dibuat dari Merk, Model, Varian, dan Tahun</p>
+                            {/* Title Auto-generated */}
+                            <div className="bg-primary/5 rounded-xl border border-primary/20 p-4">
+                                <p className="text-xs text-gray-500 mb-1">Judul Iklan</p>
+                                <p className="text-sm font-semibold text-primary">{autoTitle || 'Akan dibuat otomatis'}</p>
+                            </div>
+
+                            {/* Description */}
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Deskripsi</p>
                                 </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Deskripsi
-                                    </label>
+                                <div className="p-4">
                                     <textarea
-                                        rows={5}
-                                        placeholder="Jelaskan kondisi mobil, kelengkapan, alasan jual, dll."
+                                        rows={4}
+                                        placeholder="Jelaskan kondisi mobil, kelengkapan, alasan jual..."
                                         value={formData.description}
                                         onChange={(e) => updateFormData('description', e.target.value)}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
                                     />
                                 </div>
+                            </div>
 
-                                {/* Features Checklist */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-4">
-                                        Fitur Mobil
-                                    </label>
-                                    <div className="grid sm:grid-cols-2 gap-6">
-                                        {Object.entries(CAR_FEATURES).map(([category, features]) => (
-                                            <div key={category} className="bg-gray-50 rounded-lg p-4">
-                                                <h4 className="font-medium text-secondary mb-3">{category}</h4>
-                                                <div className="space-y-2">
+                            {/* Features - Hybrid: Essential + Expandable */}
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Fitur Mobil</p>
+                                    <p className="text-xs text-gray-500">Pilih fitur yang ada pada mobil</p>
+                                </div>
+
+                                {/* Essential Features (Always Visible) */}
+                                <div className="p-4 space-y-4">
+                                    {Object.entries(CAR_FEATURES_ESSENTIAL).map(([category, features]) => (
+                                        <div key={category}>
+                                            <p className="text-xs font-medium text-gray-500 mb-2">{category}</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {features.map((feature) => (
+                                                    <label key={feature} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedFeatures[category]?.includes(feature)}
+                                                            onChange={(e) => {
+                                                                setSelectedFeatures(prev => {
+                                                                    const current = prev[category] || []
+                                                                    if (e.target.checked) {
+                                                                        return { ...prev, [category]: [...current, feature] }
+                                                                    } else {
+                                                                        return { ...prev, [category]: current.filter(f => f !== feature) }
+                                                                    }
+                                                                })
+                                                            }}
+                                                            className="w-3 h-3 text-primary rounded"
+                                                        />
+                                                        <span>{feature}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Expand/Collapse All Features */}
+                                <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAllFeatures(!showAllFeatures)}
+                                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                                    >
+                                        {showAllFeatures ? (
+                                            <>
+                                                <ChevronUp className="w-4 h-4" />
+                                                Tampilkan fitur utama saja
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ChevronDown className="w-4 h-4" />
+                                                Lihat semua fitur lengkap
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+
+                                {/* Full Features (Expandable) */}
+                                {showAllFeatures && (
+                                    <div className="p-4 pt-0 space-y-4 border-t border-gray-200">
+                                        {Object.entries(CAR_FEATURES_FULL).map(([category, features]) => (
+                                            <div key={category}>
+                                                <p className="text-xs font-medium text-gray-500 mb-2 mt-4">{category} (Lengkap)</p>
+                                                <div className="flex flex-wrap gap-2">
                                                     {features.map((feature) => (
-                                                        <label key={feature} className="flex items-center gap-2 cursor-pointer">
+                                                        <label key={feature} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={selectedFeatures[category]?.includes(feature)}
@@ -661,38 +938,163 @@ function NewUsedListingForm() {
                                                                         }
                                                                     })
                                                                 }}
-                                                                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                                                className="w-3 h-3 text-primary rounded"
                                                             />
-                                                            <span className="text-sm text-gray-600">{feature}</span>
+                                                            <span>{feature}</span>
                                                         </label>
                                                     ))}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 5: Riwayat Kendaraan */}
+                    {currentStep === 5 && (
+                        <div className="space-y-4">
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+                                <p className="text-xs text-amber-800">
+                                    💡 <span className="font-medium">Opsional:</span> Lengkapi untuk meningkatkan kepercayaan pembeli.
+                                </p>
+                            </div>
+
+                            {/* Documents */}
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="rounded-t-xl px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Dokumen</p>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Pajak STNK</label>
+                                        <Input
+                                            type="month"
+                                            value={formData.pajakStnk}
+                                            onChange={(e) => updateFormData('pajakStnk', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Dropdown
+                                            label="Pemakaian"
+                                            options={PEMAKAIAN_OPTIONS}
+                                            value={formData.pemakaian}
+                                            onChange={(val) => updateFormData('pemakaian', val)}
+                                            placeholder="Pilih"
+                                        />
+                                        <Dropdown
+                                            label="BPKB"
+                                            options={BPKB_STATUS_OPTIONS}
+                                            value={formData.bpkbStatus}
+                                            onChange={(val) => updateFormData('bpkbStatus', val)}
+                                            placeholder="Pilih"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
 
-                {/* Navigation Buttons */}
-                <div className="flex items-center justify-between">
-                    <Button
-                        variant="outline"
-                        onClick={goPrev}
-                        disabled={currentStep === 1}
-                    >
-                        Sebelumnya
-                    </Button>
-
-                    {currentStep < 4 ? (
-                        <Button onClick={goNext}>Selanjutnya</Button>
-                    ) : (
-                        <Button onClick={handleSubmit} disabled={isSubmitting}>
-                            {isSubmitting ? 'Memproses...' : 'Pasang Iklan'}
-                        </Button>
+                            {/* Condition */}
+                            <div className="bg-white rounded-xl border border-gray-200">
+                                <div className="rounded-t-xl px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                    <p className="text-sm font-semibold text-secondary">Kondisi</p>
+                                </div>
+                                <div className="p-4 space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Kecelakaan</label>
+                                        <div className="flex gap-3">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="kecelakaan"
+                                                    checked={!formData.kecelakaan}
+                                                    onChange={() => updateFormData('kecelakaan', false)}
+                                                    className="w-4 h-4 text-primary"
+                                                />
+                                                <span className="text-sm">Tidak Pernah</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="kecelakaan"
+                                                    checked={formData.kecelakaan === true}
+                                                    onChange={() => updateFormData('kecelakaan', true)}
+                                                    className="w-4 h-4 text-primary"
+                                                />
+                                                <span className="text-sm">Pernah</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Dropdown
+                                            label="Mesin"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiMesin}
+                                            onChange={(val) => updateFormData('kondisiMesin', val)}
+                                            placeholder="Kondisi"
+                                        />
+                                        <Dropdown
+                                            label="Kaki-kaki"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiKaki}
+                                            onChange={(val) => updateFormData('kondisiKaki', val)}
+                                            placeholder="Kondisi"
+                                        />
+                                        <Dropdown
+                                            label="AC"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiAc}
+                                            onChange={(val) => updateFormData('kondisiAc', val)}
+                                            placeholder="Kondisi"
+                                        />
+                                        <Dropdown
+                                            label="Ban"
+                                            options={KONDISI_BAN_OPTIONS}
+                                            value={formData.kondisiBan}
+                                            onChange={(val) => updateFormData('kondisiBan', val)}
+                                            placeholder="Kondisi"
+                                        />
+                                    </div>
+                                    <Input
+                                        label="Service Terakhir"
+                                        placeholder="Contoh: 50.000 km lalu"
+                                        value={formData.serviceTerakhir}
+                                        onChange={(e) => updateFormData('serviceTerakhir', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     )}
+
+                    {/* Auto-save indicator */}
+                    {lastSaved && (
+                        <div className="flex items-center justify-center gap-1.5 py-2">
+                            <Save className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-400">Tersimpan {lastSaved.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Inline Navigation Buttons */}
+                <div className="container max-w-2xl px-4 py-6">
+                    <div className="flex items-center gap-3">
+                        {currentStep > 1 && (
+                            <Button
+                                variant="outline"
+                                onClick={goPrev}
+                                className="flex-1"
+                            >
+                                Sebelumnya
+                            </Button>
+                        )}
+                        <Button
+                            onClick={currentStep === 5 ? handleSubmit : goNext}
+                            disabled={isSubmitting}
+                            className={`${currentStep === 1 ? 'w-full' : 'flex-[2]'}`}
+                        >
+                            {isSubmitting ? 'Memproses...' : currentStep === 5 ? 'Pasang Iklan' : 'Lanjut'}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </DashboardLayout>
@@ -704,10 +1106,7 @@ export default function NewUsedListingPage() {
         <Suspense fallback={
             <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[50vh]">
-                    <div className="flex flex-col items-center gap-4">
-                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                        <p className="text-gray-500">Memuat halaman...</p>
-                    </div>
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 </div>
             </DashboardLayout>
         }>

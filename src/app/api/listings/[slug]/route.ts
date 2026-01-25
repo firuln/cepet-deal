@@ -157,6 +157,16 @@ export async function GET(
                 avatar: listing.user.avatar,
                 memberSince: new Date(listing.user.createdAt).getFullYear().toString()
             },
+            // Vehicle History fields
+            pajakStnk: listing.pajakStnk ? listing.pajakStnk.toISOString().split('T')[0].substring(0, 7) : null,
+            pemakaian: listing.pemakaian,
+            serviceTerakhir: listing.serviceTerakhir,
+            bpkbStatus: listing.bpkbStatus,
+            kecelakaan: listing.kecelakaan,
+            kondisiMesin: listing.kondisiMesin,
+            kondisiKaki: listing.kondisiKaki,
+            kondisiAc: listing.kondisiAc,
+            kondisiBan: listing.kondisiBan,
             relatedCars: relatedListings.map(l => ({
                 id: l.id,
                 title: l.title,

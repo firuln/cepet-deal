@@ -14,6 +14,7 @@ import {
     DollarSign,
     CheckCircle,
     Loader2,
+    Wrench,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
@@ -28,6 +29,7 @@ const steps = [
     { id: 2, title: 'Detail Mobil', icon: Info },
     { id: 3, title: 'Harga', icon: DollarSign },
     { id: 4, title: 'Foto & Deskripsi', icon: Camera },
+    { id: 5, title: 'Kondisi & Riwayat', icon: Wrench },
 ]
 
 const colors = [
@@ -38,6 +40,27 @@ const colors = [
     { value: 'merah', label: 'Merah' },
     { value: 'biru', label: 'Biru' },
     { value: 'coklat', label: 'Coklat' },
+]
+
+// Vehicle History Options
+const PEMAKAIAN_OPTIONS = [
+    { value: 'Tangan ke-1', label: 'Tangan ke-1 (Perorangan)' },
+    { value: 'Tangan ke-2', label: 'Tangan ke-2' },
+    { value: 'Tangan ke-3', label: 'Tangan ke-3' },
+    { value: 'Tangan ke-4', label: 'Tangan ke-4 atau lebih' },
+]
+
+const BPKB_STATUS_OPTIONS = [
+    { value: 'Fisik Ada', label: 'Fisik Ada' },
+    { value: 'Di-Leasing', label: 'Masih di Leasing' },
+    { value: 'BPKB Hilang', label: 'BPKB Hilang (Proses)' },
+]
+
+const KONDISI_OPTIONS = [
+    { value: 'Baik/Sehat', label: 'Baik/Sehat' },
+    { value: 'Normal', label: 'Normal' },
+    { value: 'Perlu Servis', label: 'Perlu Servis Ringan' },
+    { value: 'Rusak', label: 'Perlu Perbaikan' },
 ]
 
 // Comprehensive Car Data
@@ -269,6 +292,16 @@ function NewListingForm() {
         negotiable: true,
         // Step 4
         description: '',
+        // Step 5 - Vehicle History
+        pajakStnk: '',
+        pemakaian: '',
+        serviceTerakhir: '',
+        bpkbStatus: '',
+        kecelakaan: false,
+        kondisiMesin: '',
+        kondisiKaki: '',
+        kondisiAc: '',
+        kondisiBan: '',
     }))
 
     // Auto-generate title from brand, model, variant
@@ -339,7 +372,7 @@ function NewListingForm() {
         }
     }
 
-    const goNext = () => setCurrentStep((prev) => Math.min(4, prev + 1))
+    const goNext = () => setCurrentStep((prev) => Math.min(5, prev + 1))
     const goPrev = () => setCurrentStep((prev) => Math.max(1, prev - 1))
 
     // Check if user is admin
@@ -390,11 +423,11 @@ function NewListingForm() {
 
                 {/* Badge */}
                 <div className="flex items-center justify-between mb-4 sm:mb-6">
-                    <Badge variant="success" size="lg">
+                    <Badge variant="success">
                         🚗 Mobil Baru (Admin Only)
                     </Badge>
                     <p className="text-sm text-gray-500">
-                        Langkah {currentStep} dari 4
+                        Langkah {currentStep} dari 5
                     </p>
                 </div>
 
@@ -692,6 +725,115 @@ function NewListingForm() {
                                 </div>
                             </div>
                         )}
+
+                        {/* Step 5: Vehicle History (Kondisi & Riwayat) */}
+                        {currentStep === 5 && (
+                            <div className="space-y-4 sm:space-y-6">
+                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Kondisi & Riwayat Kendaraan</h2>
+
+                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                                    <p className="text-xs sm:text-sm text-blue-700">
+                                        <span className="font-medium">Info:</span> Isi data kondisi dan riwayat kendaraan untuk membantu pembeli membuat keputusan.
+                                    </p>
+                                </div>
+
+                                {/* Riwayat Dokumen */}
+                                <div className="space-y-3 sm:space-y-4">
+                                    <h3 className="text-sm font-medium text-secondary">Riwayat Dokumen</h3>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <div>
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                                                Pajak STNK
+                                            </label>
+                                            <Input
+                                                type="month"
+                                                value={formData.pajakStnk}
+                                                onChange={(e) => updateFormData('pajakStnk', e.target.value)}
+                                                placeholder="Pilih bulan & tahun"
+                                            />
+                                        </div>
+                                        <Dropdown
+                                            label="Pemakaian"
+                                            options={PEMAKAIAN_OPTIONS}
+                                            value={formData.pemakaian}
+                                            onChange={(val) => updateFormData('pemakaian', val)}
+                                            placeholder="Pilih pemakaian"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <Input
+                                            label="Service Terakhir"
+                                            placeholder="Contoh: Agustus 2024 di 30.000 km"
+                                            value={formData.serviceTerakhir}
+                                            onChange={(e) => updateFormData('serviceTerakhir', e.target.value)}
+                                        />
+                                        <Dropdown
+                                            label="Status BPKB"
+                                            options={BPKB_STATUS_OPTIONS}
+                                            value={formData.bpkbStatus}
+                                            onChange={(val) => updateFormData('bpkbStatus', val)}
+                                            placeholder="Pilih status BPKB"
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="kecelakaan"
+                                            checked={formData.kecelakaan}
+                                            onChange={(e) => updateFormData('kecelakaan', e.target.checked)}
+                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                        />
+                                        <label htmlFor="kecelakaan" className="text-sm text-gray-600">
+                                            Mobil pernah mengalami kecelakaan
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Kondisi Komponen */}
+                                <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+                                    <h3 className="text-sm font-medium text-secondary">Kondisi Komponen</h3>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                        <Dropdown
+                                            label="Kondisi Mesin"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiMesin}
+                                            onChange={(val) => updateFormData('kondisiMesin', val)}
+                                            placeholder="Pilih kondisi"
+                                        />
+                                        <Dropdown
+                                            label="Kondisi Kaki-kaki"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiKaki}
+                                            onChange={(val) => updateFormData('kondisiKaki', val)}
+                                            placeholder="Pilih kondisi"
+                                        />
+                                        <Dropdown
+                                            label="Kondisi AC"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiAc}
+                                            onChange={(val) => updateFormData('kondisiAc', val)}
+                                            placeholder="Pilih kondisi"
+                                        />
+                                        <Dropdown
+                                            label="Kondisi Ban"
+                                            options={KONDISI_OPTIONS}
+                                            value={formData.kondisiBan}
+                                            onChange={(val) => updateFormData('kondisiBan', val)}
+                                            placeholder="Pilih kondisi"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Optional Note */}
+                                <p className="text-xs text-gray-500 mt-3 sm:mt-4">
+                                    * Semua field bersifat opsional. Kosongkan jika tidak ada informasi.
+                                </p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -707,7 +849,7 @@ function NewListingForm() {
                         Sebelumnya
                     </Button>
 
-                    {currentStep < 4 ? (
+                    {currentStep < 5 ? (
                         <Button onClick={goNext} size="sm" className="flex-1">Selanjutnya</Button>
                     ) : (
                         <Button onClick={handleSubmit} disabled={isSubmitting} size="sm" className="flex-1">

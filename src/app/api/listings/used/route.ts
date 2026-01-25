@@ -56,6 +56,16 @@ export async function POST(req: Request) {
             description,
             images,
             features,
+            // Vehicle History fields (optional)
+            pajakStnk,
+            pemakaian,
+            serviceTerakhir,
+            bpkbStatus,
+            kecelakaan,
+            kondisiMesin,
+            kondisiKaki,
+            kondisiAc,
+            kondisiBan,
         } = data
 
         // Validation - USED cars require mileage
@@ -122,7 +132,56 @@ export async function POST(req: Request) {
         if (variant) fullDescription += `\n\nVarian: ${variant}`
         if (negotiable === false) fullDescription += '\n\nHarga Fixed (Tidak Bisa Nego)'
 
-        // Create USED car listing
+        // Parse pajakStnk if provided
+        let pajakStnkDate: Date | null = null
+        if (pajakStnk) {
+            try {
+                // pajakStnk format: "2025-12" (YYYY-MM)
+                pajakStnkDate = new Date(`${pajakStnk}-01`)
+            } catch (e) {
+                console.error('Invalid pajakStnk date:', pajakStnk)
+            }
+        }
+
+        // Prepare vehicle history data
+        const vehicleHistoryData: {
+            pajakStnk?: Date | null
+            pemakaian?: string | null
+            serviceTerakhir?: string | null
+            bpkbStatus?: string | null
+            kecelakaan?: boolean | null
+            kondisiMesin?: string | null
+            kondisiKaki?: string | null
+            kondisiAc?: string | null
+            kondisiBan?: string | null
+        } = {}
+
+        // Only include vehicle history fields if they have values
+        if (pajakStnkDate && !isNaN(pajakStnkDate.getTime())) {
+            vehicleHistoryData.pajakStnk = pajakStnkDate
+        }
+        if (pemakaian) vehicleHistoryData.pemakaian = pemakaian
+        if (serviceTerakhir) vehicleHistoryData.serviceTerakhir = serviceTerakhir
+        if (bpkbStatus) vehicleHistoryData.bpkbStatus = bpkbStatus
+        if (kecelakaan !== undefined && kecelakaan !== null) vehicleHistoryData.kecelakaan = kecelakaan
+        if (kondisiMesin) vehicleHistoryData.kondisiMesin = kondisiMesin
+        if (kondisiKaki) vehicleHistoryData.kondisiKaki = kondisiKaki
+        if (kondisiAc) vehicleHistoryData.kondisiAc = kondisiAc
+        if (kondisiBan) vehicleHistoryData.kondisiBan = kondisiBan
+
+        // Prepare features data for CarFeature relation
+        const featuresData: { category: string; name: string }[] = []
+        if (features && typeof features === 'object') {
+            for (const [category, featureList] of Object.entries(features)) {
+                if (Array.isArray(featureList)) {
+                    for (const name of featureList) {
+                        featuresData.push({ category, name })
+                    }
+                }
+            }
+        }
+
+        // Create USED car listing with features
         const listing = await prisma.listing.create({
             data: {
                 title,
@@ -142,10 +201,17 @@ export async function POST(req: Request) {
                 userId: user.id,
                 brandId: brandRecord.id,
                 modelId: modelRecord.id,
+                ...vehicleHistoryData,
+                features: featuresData.length > 0 ? {
+                    create: featuresData
+                } : undefined,
             },
             include: {
                 brand: true,
                 model: true,
+                features: {
+                    orderBy: { category: 'asc' }
+                }
             }
         })
 
@@ -155,8 +221,20 @@ export async function POST(req: Request) {
                 ? 'Iklan mobil bekas berhasil diterbitkan'
                 : 'Iklan berhasil diajukan dan menunggu review admin',
             listing: {
-                ...listing,
+                id: listing.id,
+                title: listing.title,
+                slug: listing.slug,
+                brand: listing.brand.name,
+                model: listing.model.name,
+                year: listing.year,
                 price: Number(listing.price),
+                condition: listing.condition,
+                status: listing.status,
+                features: listing.features.map((f: any) => ({
+                    id: f.id,
+                    category: f.category,
+                    name: f.name
+                }))
             }
         }, { status: 201 })
 

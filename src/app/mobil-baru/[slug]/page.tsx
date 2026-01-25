@@ -313,7 +313,7 @@ export default function MobilBaruDetailPage() {
                                         Baru
                                     </Badge>
                                     <Badge variant="primary" className="px-3 py-1">{bodyTypeLabel}</Badge>
-                                    <Badge variant="outline" className="px-3 py-1 border-blue-200 text-blue-700 bg-blue-50">
+                                    <Badge variant="info" className="px-3 py-1 border-blue-200 text-blue-700 bg-blue-50">
                                         <CheckCircle className="w-3 h-3 mr-1" />
                                         Garansi Resmi
                                     </Badge>
