@@ -491,6 +491,91 @@ export default function MobilBekasDetailPage() {
                         {/* FAQ Accordion */}
                         <FAQAccordion />
 
+                        {/* Mobile Seller Card - Only visible on mobile */}
+                        <div className="lg:hidden bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+                            <div className="bg-gradient-to-r from-primary via-orange-500 to-accent px-5 py-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+                                        <Shield className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-semibold text-sm">
+                                            {listing.seller.verified ? 'VERIFIED DEALER' : 'SELLER'}
+                                        </p>
+                                        <div className="flex items-center gap-1 text-white/90 text-xs">
+                                            <Star className="w-3 h-3 fill-current" />
+                                            <span>4.8 (128 ulasan)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="relative flex-shrink-0">
+                                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 ring-2 ring-primary/10">
+                                            {listing.seller.avatar ? (
+                                                <Image
+                                                    src={listing.seller.avatar}
+                                                    alt={listing.seller.name}
+                                                    width={64}
+                                                    height={64}
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+                                                    <User className="w-8 h-8 text-primary" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
+                                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-base font-bold text-secondary mb-1 truncate">{listing.seller.name}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={listing.seller.type === 'DEALER' ? 'primary' : 'info'} size="sm">
+                                                {listing.seller.type === 'DEALER' ? 'Dealer' : 'Pribadi'}
+                                            </Badge>
+                                            {listing.seller.verified && (
+                                                <span className="text-green-600 text-xs font-medium flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Terverifikasi
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 mb-4">
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <Car className="w-4 h-4 text-primary mx-auto mb-1" />
+                                        <p className="text-xs font-bold text-secondary">156</p>
+                                        <p className="text-xs text-gray-500">Listing</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <Clock className="w-4 h-4 text-green-500 mx-auto mb-1" />
+                                        <p className="text-xs font-bold text-secondary">2jam</p>
+                                        <p className="text-xs text-gray-500">Respon</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                        <CheckCircle className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+                                        <p className="text-xs font-bold text-secondary">98%</p>
+                                        <p className="text-xs text-gray-500">Rate</p>
+                                    </div>
+                                </div>
+
+                                {listing.seller.phone && (
+                                    <Button className="w-full" onClick={handleWhatsApp}>
+                                        <MessageCircle className="w-4 h-4 mr-2" />
+                                        Chat WhatsApp
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Related Cars - Desktop & Mobile */}
                         {relatedCars.length > 0 && (
                             <div className="bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 mb-6">
@@ -541,7 +626,7 @@ export default function MobilBekasDetailPage() {
                     </div>
 
                     {/* Sidebar */}
-                    <aside className="lg:w-80 flex-shrink-0">
+                    <aside className="hidden lg:block lg:w-80 flex-shrink-0">
                         <div className="sticky top-20 space-y-4">
                             {/* Premium Seller Card */}
                             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

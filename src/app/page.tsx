@@ -3,10 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Search, Car, Users, Shield, ChevronRight, Star, MapPin, Heart, TrendingUp, Clock, DollarSign, Flame, Sparkles, Zap, Newspaper } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { Button, LocationDetectorModal } from '@/components/ui'
+import { useLocationDetector } from '@/hooks/useLocationDetector'
 
 // Hero Section
-function HeroSection() {
+function HeroSection({
+  location,
+  onChangeLocation,
+  hasLocation,
+}: {
+  location?: { city: string; latitude: number; longitude: number } | null
+  onChangeLocation?: () => void
+  hasLocation?: boolean
+}) {
   const [searchQuery, setSearchQuery] = useState('')
 
   return (
@@ -35,6 +44,19 @@ function HeroSection() {
             Temukan ribuan mobil baru dan bekas dengan harga terbaik.
             Jual beli mobil jadi lebih aman dan transparan.
           </p>
+
+          {/* Location Indicator */}
+          {hasLocation && location && (
+            <button
+              onClick={onChangeLocation}
+              className="mb-4 inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-sm hover:bg-white/20 transition-colors"
+            >
+              <MapPin className="w-4 h-4 text-accent" />
+              <span>{location.city}</span>
+              <span className="text-white/60">•</span>
+              <span className="text-white/80 text-xs">Ganti Lokasi</span>
+            </button>
+          )}
 
           {/* Search Bar */}
           <div className="bg-white rounded-2xl p-2 shadow-2xl animate-slide-up">
@@ -782,15 +804,35 @@ function CTASection() {
 
 // Main Homepage
 export default function HomePage() {
+  const {
+    location,
+    showModal,
+    hasAskedBefore,
+    handleLocationDetected,
+    handleModalClose,
+    changeLocation,
+  } = useLocationDetector()
+
   return (
     <main>
-      <HeroSection />
+      <HeroSection
+        location={location}
+        onChangeLocation={changeLocation}
+        hasLocation={!!location}
+      />
       <StatsSection />
       <NewCarsContainer />
       <UsedCarsContainer />
       <ArticlesContainer />
       <BrowseByBrand />
       <CTASection />
+
+      {/* Location Detector Modal */}
+      <LocationDetectorModal
+        isOpen={showModal}
+        onClose={handleModalClose}
+        onLocationDetected={handleLocationDetected}
+      />
     </main>
   )
 }
