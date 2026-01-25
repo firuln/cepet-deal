@@ -46,8 +46,14 @@ export async function GET(
             return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
         }
 
-        // Only show ACTIVE or SOLD listings publicly
-        if (listing.status !== 'ACTIVE' && listing.status !== 'SOLD') {
+        // Check if user is logged in
+        const session = await getServerSession(authOptions)
+        const isOwner = session?.user?.email === listing.user.email
+        const isAdmin = session?.user?.role === 'ADMIN'
+
+        // Allow access if: ACTIVE/SOLD (public), OR owner/admin can see PENDING listings
+        const isPublicListing = listing.status === 'ACTIVE' || listing.status === 'SOLD'
+        if (!isPublicListing && !isOwner && !isAdmin) {
             return NextResponse.json({ error: 'Listing not available' }, { status: 404 })
         }
 
@@ -71,6 +77,49 @@ export async function GET(
             }
         })
 
+        // Get recommended new cars (same brand first, then fallback to other brands)
+        const recommendedSameBrand = await prisma.listing.findMany({
+            where: {
+                brandId: listing.brandId,
+                id: { not: listing.id },
+                condition: 'NEW',
+                status: 'ACTIVE'
+            },
+            take: 4,
+            orderBy: [
+                { featured: 'desc' },
+                { createdAt: 'desc' }
+            ],
+            include: {
+                brand: true,
+                model: true
+            }
+        })
+
+        // If we need more cars, get from other brands
+        let recommendedNewCars = [...recommendedSameBrand]
+        if (recommendedSameBrand.length < 4) {
+            const remainingCount = 4 - recommendedSameBrand.length
+            const recommendedOtherBrands = await prisma.listing.findMany({
+                where: {
+                    brandId: { not: listing.brandId },
+                    id: { not: listing.id },
+                    condition: 'NEW',
+                    status: 'ACTIVE'
+                },
+                take: remainingCount,
+                orderBy: [
+                    { featured: 'desc' },
+                    { createdAt: 'desc' }
+                ],
+                include: {
+                    brand: true,
+                    model: true
+                }
+            })
+            recommendedNewCars = [...recommendedSameBrand, ...recommendedOtherBrands]
+        }
+
         // Format the response
         const formattedListing = {
             id: listing.id,
@@ -81,6 +130,7 @@ export async function GET(
             year: listing.year,
             price: Number(listing.price),
             condition: listing.condition,
+            status: listing.status,
             transmission: listing.transmission,
             fuelType: listing.fuelType,
             bodyType: listing.bodyType,
@@ -119,6 +169,15 @@ export async function GET(
                 condition: l.condition,
                 transmission: l.transmission,
                 fuelType: l.fuelType
+            })),
+            recommendedNewCars: recommendedNewCars.map(l => ({
+                id: l.id,
+                title: l.title,
+                slug: l.slug,
+                price: Number(l.price),
+                year: l.year,
+                image: l.images[0] || '/placeholder-car.png',
+                badge: l.featured ? 'PROMO' : 'NEW'
             }))
         }
 

@@ -27,10 +27,10 @@ import {
     Users,
     Palette,
     FileText,
-    TrendingDown,
     Sparkles,
+    AlertTriangle,
 } from 'lucide-react'
-import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer } from '@/components/ui'
+import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer, CreditCalculator, VehicleHistory, FAQAccordion, NewCarCard, CompactCarCard } from '@/components/ui'
 import { CarCard, CarFeatures } from '@/components/features'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
@@ -49,6 +49,7 @@ interface ListingDetail {
     year: number
     price: number
     condition: 'NEW' | 'USED'
+    status: string
     transmission: string
     fuelType: string
     bodyType: string
@@ -71,6 +72,16 @@ interface ListingDetail {
         avatar?: string
         memberSince: string
     }
+    // Vehicle History Fields
+    pajakStnk?: string | null
+    pemakaian?: string | null
+    serviceTerakhir?: string | null
+    bpkbStatus?: string | null
+    kecelakaan?: boolean | null
+    kondisiMesin?: string | null
+    kondisiKaki?: string | null
+    kondisiAc?: string | null
+    kondisiBan?: string | null
 }
 
 interface RelatedCar {
@@ -85,6 +96,16 @@ interface RelatedCar {
     condition: 'NEW' | 'USED'
     transmission: string
     fuelType: string
+}
+
+interface RecommendedNewCar {
+    id: string
+    title: string
+    slug: string
+    price: number
+    year: number
+    image: string
+    badge: 'NEW' | 'PROMO'
 }
 
 const TRANSMISSION_LABELS: Record<string, string> = {
@@ -116,6 +137,7 @@ export default function MobilBekasDetailPage() {
     const slug = params.slug as string
     const [listing, setListing] = useState<ListingDetail | null>(null)
     const [relatedCars, setRelatedCars] = useState<RelatedCar[]>([])
+    const [recommendedNewCars, setRecommendedNewCars] = useState<RecommendedNewCar[]>([])
     const [isFavorited, setIsFavorited] = useState(false)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -147,8 +169,13 @@ export default function MobilBekasDetailPage() {
                 const relatedCarsData = data.relatedCars || []
                 delete data.relatedCars
 
+                // Extract recommended new cars from response
+                const recommendedNewCarsData = data.recommendedNewCars || []
+                delete data.recommendedNewCars
+
                 setListing(data)
                 setRelatedCars(relatedCarsData)
+                setRecommendedNewCars(recommendedNewCarsData)
             } catch (err) {
                 console.error('Error fetching listing:', err)
                 setError(err instanceof Error ? err.message : 'Failed to load listing')
@@ -307,11 +334,17 @@ export default function MobilBekasDetailPage() {
                             <div className="p-6">
                                 {/* Condition Badges */}
                                 <div className="flex flex-wrap gap-2 mb-4">
+                                    {listing.status === 'PENDING' && (
+                                        <Badge variant="warning" className="px-3 py-1 bg-amber-100 text-amber-800 border-amber-200">
+                                            <AlertTriangle className="w-3 h-3 mr-1" />
+                                            Menunggu Approval
+                                        </Badge>
+                                    )}
                                     <Badge variant="warning" className="px-3 py-1">
                                         Bekas
                                     </Badge>
                                     <Badge variant="primary" className="px-3 py-1">{bodyTypeLabel}</Badge>
-                                    <Badge variant="outline" className="px-3 py-1 border-green-200 text-green-700 bg-green-50">
+                                    <Badge variant="success" className="px-3 py-1 border-green-200 text-green-700 bg-green-50">
                                         <CheckCircle className="w-3 h-3 mr-1" />
                                         Siap Pakai
                                     </Badge>
@@ -334,20 +367,9 @@ export default function MobilBekasDetailPage() {
                                     </p>
                                 </div>
 
-                                {/* Price Breakdown */}
-                                <div className="bg-gray-50 rounded-lg px-4 py-3 mb-6">
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <div className="text-sm">
-                                            <span className="text-gray-500">Cicilan mulai</span>
-                                            <span className="ml-2 font-semibold text-secondary">
-                                                {formatCurrency(Math.floor(listing.price / 60))}/bulan (60x)
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                                            <TrendingDown className="w-3 h-3" />
-                                            <span>Hemat {formatCurrency(15000000)} dari harga pasar</span>
-                                        </div>
-                                    </div>
+                                {/* Credit Calculator */}
+                                <div className="mb-6">
+                                    <CreditCalculator price={listing.price} />
                                 </div>
 
                                 {/* Specs Grid - Modern Cards */}
@@ -453,13 +475,29 @@ export default function MobilBekasDetailPage() {
                             <CarFeatures features={listing.features} />
                         )}
 
-                        {/* Related Cars - Desktop only */}
+                        {/* Vehicle History */}
+                        <VehicleHistory
+                            pajakStnk={listing.pajakStnk}
+                            pemakaian={listing.pemakaian}
+                            serviceTerakhir={listing.serviceTerakhir}
+                            bpkbStatus={listing.bpkbStatus}
+                            kecelakaan={listing.kecelakaan}
+                            kondisiMesin={listing.kondisiMesin}
+                            kondisiKaki={listing.kondisiKaki}
+                            kondisiAc={listing.kondisiAc}
+                            kondisiBan={listing.kondisiBan}
+                        />
+
+                        {/* FAQ Accordion */}
+                        <FAQAccordion />
+
+                        {/* Related Cars - Desktop & Mobile */}
                         {relatedCars.length > 0 && (
-                            <div className="hidden lg:block mb-6">
-                                <h2 className="text-xl font-bold text-secondary mb-4">Mobil Serupa</h2>
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 mb-6">
+                                <h2 className="text-base font-semibold text-secondary mb-4">Mobil Serupa</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {relatedCars.map((car) => (
-                                        <CarCard
+                                        <CompactCarCard
                                             key={car.id}
                                             id={car.id}
                                             title={car.title}
@@ -467,11 +505,34 @@ export default function MobilBekasDetailPage() {
                                             price={car.price}
                                             year={car.year}
                                             mileage={car.mileage}
-                                            location={car.location}
-                                            image={car.image || '/placeholder-car.png'}
-                                            condition={car.condition}
                                             transmission={car.transmission}
                                             fuelType={car.fuelType}
+                                            image={car.image || '/placeholder-car.png'}
+                                            condition={car.condition}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recommended New Cars - Desktop & Mobile */}
+                        {recommendedNewCars.length > 0 && (
+                            <div className="bg-white -mx-4 sm:-mx-6 px-4 sm:px-6 py-6 border-t border-gray-200">
+                                <h2 className="text-sm font-semibold text-secondary mb-4 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-primary" />
+                                    Rekomendasi Mobil Baru
+                                </h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                    {recommendedNewCars.map((car) => (
+                                        <NewCarCard
+                                            key={car.id}
+                                            id={car.id}
+                                            title={car.title}
+                                            slug={car.slug}
+                                            price={car.price}
+                                            year={car.year}
+                                            image={car.image}
+                                            badge={car.badge}
                                         />
                                     ))}
                                 </div>
@@ -653,31 +714,6 @@ export default function MobilBekasDetailPage() {
                                     <span className="text-gray-600">Risiko penipuan</span> bukan tanggung jawab CepetDeal.
                                 </p>
                             </div>
-
-                            {/* Related Cars - Mobile only */}
-                            {relatedCars.length > 0 && (
-                                <div className="lg:hidden mt-4">
-                                    <h2 className="text-lg font-bold text-secondary mb-3">Mobil Serupa</h2>
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        {relatedCars.map((car) => (
-                                            <CarCard
-                                                key={car.id}
-                                                id={car.id}
-                                                title={car.title}
-                                                slug={car.slug}
-                                                price={car.price}
-                                                year={car.year}
-                                                mileage={car.mileage}
-                                                location={car.location}
-                                                image={car.image || '/placeholder-car.png'}
-                                                condition={car.condition}
-                                                transmission={car.transmission}
-                                                fuelType={car.fuelType}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </aside>
                 </div>
