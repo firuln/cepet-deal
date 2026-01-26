@@ -30,8 +30,12 @@ import {
     TrendingDown,
     Sparkles,
 } from 'lucide-react'
-import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer } from '@/components/ui'
+import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer, useToast } from '@/components/ui'
 import { CarCard, CarFeatures } from '@/components/features'
+import { CarSpecsTable } from '@/components/features/CarSpecsTable'
+import { FinancingCalculatorWidget } from '@/components/financing/FinancingCalculatorWidget'
+import { RecentlyViewed } from '@/components/layout/RecentlyViewed'
+import { ShareOptionsModal } from '@/components/share/ShareOptionsModal'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
 interface CarFeature {
@@ -72,6 +76,24 @@ interface ListingDetail {
         memberSince: string
     }
     relatedCars?: RelatedCar[]
+    // Car Specifications (NEW)
+    enginePower?: number
+    engineTorque?: number
+    cylinders?: number
+    seats?: number
+    doors?: number
+    length?: number
+    width?: number
+    height?: number
+    wheelbase?: number
+    groundClearance?: number
+    fuelTank?: number
+    luggageCapacity?: number
+    topSpeed?: number
+    acceleration?: number
+    warrantyYears?: number
+    warrantyKm?: number
+    specs?: Record<string, any>
 }
 
 interface RelatedCar {
@@ -114,12 +136,14 @@ const BODY_TYPE_LABELS: Record<string, string> = {
 export default function MobilBaruDetailPage() {
     const params = useParams()
     const router = useRouter()
+    const { addToast } = useToast()
     const slug = params.slug as string
     const [listing, setListing] = useState<ListingDetail | null>(null)
     const [relatedCars, setRelatedCars] = useState<RelatedCar[]>([])
     const [isFavorited, setIsFavorited] = useState(false)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [shareModalOpen, setShareModalOpen] = useState(false)
 
     useEffect(() => {
         const fetchListing = async () => {
@@ -128,7 +152,8 @@ export default function MobilBaruDetailPage() {
                 const res = await fetch(`/api/listings/${slug}`)
 
                 if (!res.ok) {
-                    throw new Error('Listing not found')
+                    const errorData = await res.json().catch(() => ({ error: 'Listing not found' }))
+                    throw new Error(errorData.error || 'Listing not found')
                 }
 
                 const data = await res.json()
@@ -162,6 +187,71 @@ export default function MobilBaruDetailPage() {
             fetchListing()
         }
     }, [slug, router])
+
+    // Check if listing is favorited
+    useEffect(() => {
+        const checkFavoriteStatus = async () => {
+            if (!listing?.id) return
+
+            try {
+                const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setIsFavorited(data.favorited)
+                }
+            } catch (err) {
+                console.error('Error checking favorite status:', err)
+            }
+        }
+
+        checkFavoriteStatus()
+    }, [listing?.id])
+
+    const handleFavorite = async () => {
+        if (!listing?.id) return
+
+        try {
+            const res = await fetch('/api/favorites/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingId: listing.id })
+            })
+
+            if (res.status === 401) {
+                addToast({
+                    type: 'warning',
+                    title: 'Login Diperlukan',
+                    message: 'Silakan login untuk menyimpan listing'
+                })
+                router.push('/login')
+                return
+            }
+
+            if (!res.ok) {
+                throw new Error('Failed to toggle favorite')
+            }
+
+            const data = await res.json()
+            setIsFavorited(data.favorited)
+
+            addToast({
+                type: 'success',
+                title: data.favorited ? 'Disimpan!' : 'Dihapus',
+                message: data.favorited ? 'Listing ditambahkan ke favorit' : 'Listing dihapus dari favorit'
+            })
+        } catch (err) {
+            console.error('Error toggling favorite:', err)
+            addToast({
+                type: 'error',
+                title: 'Gagal',
+                message: 'Terjadi kesalahan, silakan coba lagi'
+            })
+        }
+    }
+
+    const handleShare = () => {
+        setShareModalOpen(true)
+    }
 
     const handleWhatsApp = () => {
         if (!listing?.seller.phone) return
@@ -440,20 +530,67 @@ export default function MobilBaruDetailPage() {
                             </div>
                         )}
 
-                        {/* Description */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                            <h2 className="text-lg font-semibold text-secondary mb-4">Deskripsi</h2>
-                            <div className="prose prose-gray max-w-none">
-                                <p className="whitespace-pre-line text-gray-600 leading-relaxed">
-                                    {listing.description}
-                                </p>
-                            </div>
-                        </div>
-
                         {/* Car Features */}
                         {listing.features && listing.features.length > 0 && (
                             <CarFeatures features={listing.features} />
                         )}
+
+                        {/* Tabs Section - Description & Specs */}
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+                            <Tabs defaultValue="deskripsi" className="w-full">
+                                <div className="border-b border-gray-200 px-6">
+                                    <TabsList className="h-auto p-0 bg-transparent">
+                                        <TabsTrigger
+                                            value="deskripsi"
+                                            className="px-4 py-3 text-sm font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none"
+                                        >
+                                            <FileText className="w-4 h-4 mr-2" />
+                                            Deskripsi
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                            value="spesifikasi"
+                                            className="px-4 py-3 text-sm font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary rounded-none"
+                                        >
+                                            <Settings2 className="w-4 h-4 mr-2" />
+                                            Spesifikasi
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </div>
+
+                                <TabsContent value="deskripsi" className="p-6">
+                                    <div className="prose prose-gray max-w-none">
+                                        <p className="whitespace-pre-line text-gray-600 leading-relaxed">
+                                            {listing.description}
+                                        </p>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="spesifikasi" className="p-6">
+                                    <CarSpecsTable
+                                        engineSize={listing.engineSize}
+                                        fuelType={listing.fuelType}
+                                        transmission={listing.transmission}
+                                        enginePower={listing.enginePower}
+                                        engineTorque={listing.engineTorque}
+                                        cylinders={listing.cylinders}
+                                        length={listing.length}
+                                        width={listing.width}
+                                        height={listing.height}
+                                        wheelbase={listing.wheelbase}
+                                        groundClearance={listing.groundClearance}
+                                        seats={listing.seats}
+                                        doors={listing.doors}
+                                        fuelTank={listing.fuelTank}
+                                        luggageCapacity={listing.luggageCapacity}
+                                        topSpeed={listing.topSpeed}
+                                        acceleration={listing.acceleration}
+                                        warrantyYears={listing.warrantyYears}
+                                        warrantyKm={listing.warrantyKm}
+                                        specs={listing.specs}
+                                    />
+                                </TabsContent>
+                            </Tabs>
+                        </div>
 
                         {/* Related Cars - Desktop only */}
                         {relatedCars.length > 0 && (
@@ -618,7 +755,7 @@ export default function MobilBaruDetailPage() {
                                     <p className="text-sm font-medium text-secondary mb-3">Simpan & Bagikan</p>
                                     <div className="flex gap-3">
                                         <button
-                                            onClick={() => setIsFavorited(!isFavorited)}
+                                            onClick={handleFavorite}
                                             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all duration-200 ${
                                                 isFavorited
                                                     ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
@@ -628,7 +765,10 @@ export default function MobilBaruDetailPage() {
                                             <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
                                             <span className="text-sm font-medium">{isFavorited ? 'Disimpan' : 'Simpan'}</span>
                                         </button>
-                                        <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
+                                        <button
+                                            onClick={handleShare}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+                                        >
                                             <Share2 className="w-5 h-5" />
                                             <span className="text-sm font-medium">Bagikan</span>
                                         </button>
@@ -646,6 +786,20 @@ export default function MobilBaruDetailPage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Financing Calculator Widget */}
+                            <FinancingCalculatorWidget
+                                price={listing.price}
+                                title="Simulasi Kredit"
+                            />
+
+                            {/* Recently Viewed */}
+                            {listing.id && listing.slug && (
+                                <RecentlyViewed
+                                    currentListingId={listing.id}
+                                    currentListingSlug={listing.slug}
+                                />
+                            )}
 
                             {/* Disclaimer */}
                             <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 text-center">
@@ -683,6 +837,18 @@ export default function MobilBaruDetailPage() {
                     </aside>
                 </div>
             </div>
+
+            {/* Share Options Modal */}
+            {listing && (
+                <ShareOptionsModal
+                    isOpen={shareModalOpen}
+                    onClose={() => setShareModalOpen(false)}
+                    listingTitle={listing.title}
+                    listingPrice={listing.price}
+                    listingSlug={listing.slug}
+                    listingCondition={listing.condition}
+                />
+            )}
         </div>
     )
 }

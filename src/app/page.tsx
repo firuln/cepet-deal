@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Search, Car, Users, Shield, ChevronRight, Star, MapPin, Heart, TrendingUp, Clock, DollarSign, Flame, Sparkles, Zap, Newspaper } from 'lucide-react'
 import { Button, LocationDetectorModal } from '@/components/ui'
 import { useLocationDetector } from '@/hooks/useLocationDetector'
@@ -132,9 +133,11 @@ function StatsSection() {
 
 // New Cars Container
 function NewCarsContainer() {
+  const router = useRouter()
   const [listings, setListings] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'price_asc' | 'price_desc' | 'newest'>('all')
+  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function fetchListings() {
@@ -168,6 +171,65 @@ function NewCarsContainer() {
     if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     return 0
   })
+
+  // Check favorite status for all listings
+  useEffect(() => {
+    const checkFavorites = async () => {
+      if (listings.length === 0) return
+
+      try {
+        const promises = listings.map(async (listing) => {
+          const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
+          if (res.ok) {
+            const data = await res.json()
+            return { id: listing.id, favorited: data.favorited }
+          }
+          return { id: listing.id, favorited: false }
+        })
+
+        const results = await Promise.all(promises)
+        const favIds = new Set(results.filter((r) => r.favorited).map((r) => r.id))
+        setFavoritedIds(favIds)
+      } catch (err) {
+        console.error('Error checking favorites:', err)
+      }
+    }
+
+    checkFavorites()
+  }, [listings])
+
+  const handleFavoriteClick = async (e: React.MouseEvent, listingId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      const res = await fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId })
+      })
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      if (res.ok) {
+        const data = await res.json()
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (data.favorited) {
+            newSet.add(listingId)
+          } else {
+            newSet.delete(listingId)
+          }
+          return newSet
+        })
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -311,8 +373,19 @@ function NewCarsContainer() {
                       )}
                     </div>
                     {/* Favorite Button */}
-                    <button className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-sm">
-                      <Heart className="w-4 h-4 text-gray-600 hover:text-red-500" />
+                    <button
+                      onClick={(e) => handleFavoriteClick(e, listing.id)}
+                      className={`absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-sm ${
+                        favoritedIds.has(listing.id) ? 'bg-red-500' : ''
+                      }`}
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${
+                          favoritedIds.has(listing.id)
+                            ? 'text-white fill-current'
+                            : 'text-gray-600 hover:text-red-500'
+                        }`}
+                      />
                     </button>
                   </div>
 
@@ -355,9 +428,11 @@ function NewCarsContainer() {
 
 // Used Cars Container
 function UsedCarsContainer() {
+  const router = useRouter()
   const [listings, setListings] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'price_asc' | 'price_desc' | 'newest'>('all')
+  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function fetchListings() {
@@ -391,6 +466,65 @@ function UsedCarsContainer() {
     if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     return 0
   })
+
+  // Check favorite status for all listings
+  useEffect(() => {
+    const checkFavorites = async () => {
+      if (listings.length === 0) return
+
+      try {
+        const promises = listings.map(async (listing) => {
+          const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
+          if (res.ok) {
+            const data = await res.json()
+            return { id: listing.id, favorited: data.favorited }
+          }
+          return { id: listing.id, favorited: false }
+        })
+
+        const results = await Promise.all(promises)
+        const favIds = new Set(results.filter((r) => r.favorited).map((r) => r.id))
+        setFavoritedIds(favIds)
+      } catch (err) {
+        console.error('Error checking favorites:', err)
+      }
+    }
+
+    checkFavorites()
+  }, [listings])
+
+  const handleFavoriteClick = async (e: React.MouseEvent, listingId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      const res = await fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId })
+      })
+
+      if (res.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      if (res.ok) {
+        const data = await res.json()
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (data.favorited) {
+            newSet.add(listingId)
+          } else {
+            newSet.delete(listingId)
+          }
+          return newSet
+        })
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -533,8 +667,19 @@ function UsedCarsContainer() {
                       )}
                     </div>
                     {/* Favorite Button */}
-                    <button className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-sm">
-                      <Heart className="w-4 h-4 text-gray-600 hover:text-red-500" />
+                    <button
+                      onClick={(e) => handleFavoriteClick(e, listing.id)}
+                      className={`absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-sm ${
+                        favoritedIds.has(listing.id) ? 'bg-red-500' : ''
+                      }`}
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${
+                          favoritedIds.has(listing.id)
+                            ? 'text-white fill-current'
+                            : 'text-gray-600 hover:text-red-500'
+                        }`}
+                      />
                     </button>
                   </div>
 

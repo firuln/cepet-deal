@@ -3,53 +3,69 @@
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react'
+import { signIn, useSession } from 'next-auth/react'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
-
-const loginSchema = z.object({
-    email: z.string().email('Email tidak valid'),
-    password: z.string().min(1, 'Password wajib diisi'),
-})
-
-type LoginFormData = z.infer<typeof loginSchema>
 
 function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+    const { update: updateSession } = useSession()
 
     const [showPassword, setShowPassword] = useState(false)
+    const [rememberMe, setRememberMe] = useState(true)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-    } = useForm<LoginFormData>({
-        resolver: zodResolver(loginSchema),
+    const [formData, setFormData] = useState({
+        identifier: '',
+        password: '',
     })
 
-    const onSubmit = async (data: LoginFormData) => {
+    const onSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
         setIsLoading(true)
         setError('')
 
         try {
             const result = await signIn('credentials', {
-                email: data.email,
-                password: data.password,
+                identifier: formData.identifier,
+                password: formData.password,
+                rememberMe: rememberMe,
                 redirect: false,
             })
 
             if (result?.error) {
                 setError(result.error)
             } else {
-                router.push(callbackUrl)
-                router.refresh()
+                // Update session to get latest user data
+                await updateSession()
+
+                // Fetch current session to check user role
+                const sessionRes = await fetch('/api/auth/session')
+                if (sessionRes.ok) {
+                    const session = await sessionRes.json()
+                    const userRole = session?.user?.role
+
+                    // Determine redirect URL based on role
+                    const callbackUrlParam = searchParams.get('callbackUrl')
+                    let redirectUrl = '/dashboard' // default for regular users
+
+                    // If callbackUrl is explicitly provided, use it (backward compatibility)
+                    if (callbackUrlParam) {
+                        redirectUrl = callbackUrlParam
+                    } else if (userRole === 'ADMIN') {
+                        // Admin goes to admin panel by default
+                        redirectUrl = '/admin'
+                    }
+
+                    router.push(redirectUrl)
+                    router.refresh()
+                } else {
+                    // Fallback to dashboard if session fetch fails
+                    router.push('/dashboard')
+                    router.refresh()
+                }
             }
         } catch (err) {
             setError('Terjadi kesalahan. Silakan coba lagi.')
@@ -68,11 +84,18 @@ function LoginForm() {
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
                             <LogIn className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-2xl font-bold text-secondary">Masuk ke Akun</h1>
+                        <h1 className="text-2xl font-bold text-gray-800">Masuk ke Akun</h1>
                         <p className="text-gray-500 mt-2">
                             Selamat datang kembali! Silakan masuk untuk melanjutkan.
                         </p>
                     </div>
+
+                    {/* Success Message (for newly registered users) */}
+                    {searchParams.get('registered') === 'true' && (
+                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm">
+                            Registrasi berhasil! Silakan masuk dengan username dan password Anda.
+                        </div>
+                    )}
 
                     {/* Error Message */}
                     {error && (
@@ -82,51 +105,75 @@ function LoginForm() {
                     )}
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                        {/* Email */}
-                        <div className="relative">
-                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                            <input
-                                type="email"
-                                placeholder="Email"
-                                {...register('email')}
-                                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    <form onSubmit={onSubmit} className="space-y-5">
+                        {/* Identifier (Username/Email/Phone) */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Username, Email, atau WhatsApp
+                            </label>
+                            <Input
+                                type="text"
+                                placeholder="john_doe123"
+                                value={formData.identifier}
+                                onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
+                                required
+                                className="w-full"
                             />
-                            {errors.email && (
-                                <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
-                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                                Masukkan username, email, atau nomor WhatsApp Anda
+                            </p>
                         </div>
 
                         {/* Password */}
                         <div className="relative">
-                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="Password"
-                                {...register('password')}
-                                className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                            >
-                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                            </button>
-                            {errors.password && (
-                                <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
-                            )}
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Password
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Masukkan password"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Forgot Password */}
-                        <div className="text-right">
-                            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                                Lupa password?
+                        {/* Remember Me & Forgot Password */}
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                />
+                                <span className="text-sm text-gray-700">Ingat Saya</span>
+                            </label>
+                            <Link
+                                href="/forgot-password"
+                                className="text-sm text-primary hover:underline"
+                            >
+                                Lupa Password?
                             </Link>
                         </div>
 
                         {/* Submit */}
-                        <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            size="lg"
+                            isLoading={isLoading}
+                        >
                             Masuk
                         </Button>
                     </form>
@@ -142,11 +189,23 @@ function LoginForm() {
                     </div>
 
                     {/* Register Link */}
-                    <p className="text-center text-gray-600">
-                        Belum punya akun?{' '}
-                        <Link href="/register" className="text-primary font-medium hover:underline">
-                            Daftar sekarang
-                        </Link>
+                    <div className="text-center">
+                        <p className="text-sm text-gray-600">
+                            Belum punya akun?{' '}
+                            <Link href="/register" className="text-primary font-medium hover:underline">
+                                Daftar sekarang
+                            </Link>
+                        </p>
+                    </div>
+                </div>
+
+                {/* Info Text */}
+                <div className="mt-6 text-center">
+                    <p className="text-xs text-gray-500">
+                        Login dengan: Username / Email / WhatsApp
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        ☑️ Ingat Saya = 30 hari &nbsp;|&nbsp; ☐ Ingat Saya = 1 hari
                     </p>
                 </div>
             </div>

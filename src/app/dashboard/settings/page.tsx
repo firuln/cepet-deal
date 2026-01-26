@@ -22,6 +22,10 @@ import {
     Star,
     ArrowLeft,
     Loader2,
+    KeyRound,
+    Lock,
+    Edit,
+    AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { Badge } from '@/components/ui'
@@ -32,6 +36,7 @@ interface UserProfile {
     name: string
     email: string
     username?: string
+    usernameUpdatedAt?: string
     phone?: string
     whatsapp?: string
     location?: string
@@ -56,7 +61,6 @@ interface FormData {
     email: string
     showroomName: string
     address: string
-    establishedYear: string
     responseTime: string
     businessHours: {
         monday: { open: string; close: string; enabled: boolean }
@@ -69,6 +73,17 @@ interface FormData {
     }
 }
 
+interface UsernameUpdateInfo {
+    canUpdate: boolean
+    hasUsername: boolean
+    currentUsername?: string
+    lastUpdated?: string
+    daysSinceLastUpdate?: number
+    remainingDays?: number
+    nextUpdateDate?: string
+    message: string
+}
+
 const DAYS = [
     { key: 'monday', label: 'Senin' },
     { key: 'tuesday', label: 'Selasa' },
@@ -79,15 +94,32 @@ const DAYS = [
     { key: 'sunday', label: 'Minggu' },
 ]
 
+type TabType = 'profile' | 'contact' | 'security' | 'business' | 'response'
+
 export default function SettingsPage() {
     const { data: session, update } = useSession()
     const router = useRouter()
-    const [activeTab, setActiveTab] = useState<'profile' | 'contact' | 'business' | 'response'>('profile')
+    const [activeTab, setActiveTab] = useState<TabType>('profile')
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
     const [errorMessage, setErrorMessage] = useState('')
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
+    // Username update info
+    const [usernameInfo, setUsernameInfo] = useState<UsernameUpdateInfo | null>(null)
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false)
+    const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+
+    // Phone change modal state
+    const [showPhoneModal, setShowPhoneModal] = useState(false)
+    const [phoneModalStep, setPhoneModalStep] = useState<'input' | 'otp'>('input')
+    const [newPhone, setNewPhone] = useState('')
+    const [phoneOtp, setPhoneOtp] = useState('')
+    const [phoneOtpSent, setPhoneOtpSent] = useState(false)
+    const [phoneOtpCountdown, setPhoneOtpCountdown] = useState(0)
+    const [phoneError, setPhoneError] = useState('')
+    const [phoneLoading, setPhoneLoading] = useState(false)
 
     const [formData, setFormData] = useState<FormData>({
         name: '',
@@ -99,7 +131,6 @@ export default function SettingsPage() {
         email: '',
         showroomName: '',
         address: '',
-        establishedYear: '',
         responseTime: '2',
         businessHours: {
             monday: { open: '09:00', close: '17:00', enabled: true },
@@ -112,13 +143,14 @@ export default function SettingsPage() {
         },
     })
 
-    // Fetch user profile on mount
+    // Fetch user profile and username update info on mount
     useEffect(() => {
-        const fetchProfile = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch('/api/users/me')
-                if (res.ok) {
-                    const data = await res.json()
+                // Fetch profile
+                const profileRes = await fetch('/api/users/me')
+                if (profileRes.ok) {
+                    const data = await profileRes.json()
                     setUserProfile(data)
                     setFormData(prev => ({
                         ...prev,
@@ -134,27 +166,88 @@ export default function SettingsPage() {
                     }))
                     setAvatarPreview(data.avatar || null)
                 }
+
+                // Fetch username update info
+                const usernameRes = await fetch('/api/users/me/can-update-username')
+                if (usernameRes.ok) {
+                    const info = await usernameRes.json()
+                    setUsernameInfo(info)
+                }
             } catch (error) {
-                console.error('Error fetching profile:', error)
+                console.error('Error fetching data:', error)
             } finally {
                 setIsLoading(false)
             }
         }
 
-        fetchProfile()
+        fetchData()
     }, [])
+
+    // Phone OTP countdown
+    useEffect(() => {
+        if (phoneOtpCountdown > 0) {
+            const timer = setTimeout(() => {
+                setPhoneOtpCountdown(prev => prev - 1)
+            }, 1000)
+            return () => clearTimeout(timer)
+        }
+    }, [phoneOtpCountdown])
+
+    // Debounced username check
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (formData.username && formData.username.length >= 3 && usernameInfo?.canUpdate) {
+                const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
+                if (!usernameRegex.test(formData.username)) {
+                    setUsernameStatus('taken')
+                    return
+                }
+
+                if (/^\d/.test(formData.username)) {
+                    setUsernameStatus('taken')
+                    return
+                }
+
+                setUsernameStatus('checking')
+                try {
+                    const res = await fetch('/api/auth/register/check-username', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: formData.username }),
+                    })
+                    const data = await res.json()
+                    setUsernameStatus(data.available ? 'available' : 'taken')
+                } catch {
+                    setUsernameStatus('idle')
+                }
+            } else {
+                setUsernameStatus('idle')
+            }
+        }, 500)
+
+        return () => clearTimeout(timer)
+    }, [formData.username, usernameInfo])
 
     const handleSave = async () => {
         setSaveStatus('saving')
         setErrorMessage('')
 
         try {
+            // Validate email if changed
+            if (formData.email && formData.email !== userProfile?.email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+                if (!emailRegex.test(formData.email)) {
+                    throw new Error('Format email tidak valid')
+                }
+            }
+
             const res = await fetch('/api/users/me', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: formData.name,
                     username: formData.username,
+                    email: formData.email,
                     location: formData.location,
                     bio: formData.bio,
                     phone: formData.phone,
@@ -167,26 +260,31 @@ export default function SettingsPage() {
 
             const data = await res.json()
 
-            if (res.ok) {
-                setSaveStatus('saved')
-                // Update session
-                await update({
-                    ...session,
-                    user: {
-                        ...session?.user,
-                        name: formData.name,
-                        avatar: avatarPreview || session?.user?.avatar,
-                    }
-                })
-                setTimeout(() => setSaveStatus('idle'), 2000)
-            } else {
-                setSaveStatus('error')
-                setErrorMessage(data.error || 'Gagal menyimpan profil')
+            if (!res.ok) {
+                throw new Error(data.error || 'Gagal menyimpan profil')
             }
-        } catch (error) {
-            console.error('Error saving profile:', error)
+
+            setSaveStatus('saved')
+            // Refresh username info after update
+            const usernameRes = await fetch('/api/users/me/can-update-username')
+            if (usernameRes.ok) {
+                const info = await usernameRes.json()
+                setUsernameInfo(info)
+            }
+
+            // Update session
+            await update({
+                ...session,
+                user: {
+                    ...session?.user,
+                    name: formData.name,
+                    avatar: avatarPreview || session?.user?.avatar,
+                }
+            })
+            setTimeout(() => setSaveStatus('idle'), 2000)
+        } catch (error: any) {
             setSaveStatus('error')
-            setErrorMessage('Terjadi kesalahan saat menyimpan')
+            setErrorMessage(error.message || 'Gagal menyimpan profil')
         }
     }
 
@@ -205,9 +303,102 @@ export default function SettingsPage() {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
 
+    // Phone change with OTP
+    const openPhoneModal = () => {
+        setShowPhoneModal(true)
+        setPhoneModalStep('input')
+        setNewPhone('')
+        setPhoneOtp('')
+        setPhoneError('')
+    }
+
+    const handleSendPhoneOtp = async () => {
+        setPhoneLoading(true)
+        setPhoneError('')
+
+        try {
+            const res = await fetch('/api/users/me/change-phone/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: newPhone }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Gagal mengirim OTP')
+            }
+
+            setPhoneModalStep('otp')
+            setPhoneOtpSent(true)
+            setPhoneOtpCountdown(5 * 60) // 5 minutes
+
+            if (data.dummyOtp) {
+                alert(`OTP DUMMY: ${data.dummyOtp}`)
+            }
+        } catch (error: any) {
+            setPhoneError(error.message || 'Gagal mengirim OTP')
+        } finally {
+            setPhoneLoading(false)
+        }
+    }
+
+    const handleVerifyPhoneOtp = async () => {
+        setPhoneLoading(true)
+        setPhoneError('')
+
+        try {
+            const res = await fetch('/api/users/me/change-phone/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    otp: phoneOtp,
+                    newPhone: newPhone,
+                }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'OTP tidak valid')
+            }
+
+            // Update formData with new phone
+            updateField('whatsapp', newPhone)
+            setShowPhoneModal(false)
+
+            // Show success
+            setErrorMessage('')
+            setSaveStatus('saved')
+            setTimeout(() => setSaveStatus('idle'), 2000)
+        } catch (error: any) {
+            setPhoneError(error.message || 'Gagal memverifikasi OTP')
+        } finally {
+            setPhoneLoading(false)
+        }
+    }
+
+    const formatPhoneCooldown = (seconds: number) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
+
     const displayName = formData.showroomName || formData.name
     const displayType = session?.user?.role === 'DEALER' ? 'Dealer' : 'Pribadi'
     const isVerified = userProfile?.dealer?.verified || false
+    const isDealer = session?.user?.role === 'DEALER'
+
+    // Define tabs based on role
+    const tabs = [
+        { key: 'profile' as TabType, label: 'Profil', icon: User },
+        { key: 'contact' as TabType, label: 'Kontak', icon: MessageCircle },
+        { key: 'security' as TabType, label: 'Keamanan', icon: Shield },
+        ...(isDealer ? [
+            { key: 'business' as TabType, label: 'Bisnis', icon: Building2 },
+            { key: 'response' as TabType, label: 'Respon', icon: Clock },
+        ] : []),
+    ]
 
     if (isLoading) {
         return (
@@ -238,7 +429,7 @@ export default function SettingsPage() {
                                 <p className="text-sm text-gray-500">Kelola profil dan tampilan kartu penjual Anda</p>
                             </div>
                         </div>
-                        <Button onClick={handleSave} disabled={saveStatus === 'saving'}>
+                        <Button onClick={handleSave} disabled={saveStatus === 'saving' || activeTab === 'security'}>
                             {saveStatus === 'saving' ? (
                                 <>
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -273,17 +464,12 @@ export default function SettingsPage() {
                         {/* Tabs */}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
                             <div className="flex border-b border-gray-200 overflow-x-auto">
-                                {[
-                                    { key: 'profile', label: 'Profil', icon: User },
-                                    {key: 'contact', label: 'Kontak', icon: Phone },
-                                    {key: 'business', label: 'Bisnis', icon: Building2 },
-                                    {key: 'response', label: 'Respon', icon: Clock },
-                                ].map((tab) => {
+                                {tabs.map((tab) => {
                                     const Icon = tab.icon
                                     return (
                                         <button
                                             key={tab.key}
-                                            onClick={() => setActiveTab(tab.key as any)}
+                                            onClick={() => setActiveTab(tab.key)}
                                             className={`flex items-center gap-2 px-4 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${
                                                 activeTab === tab.key
                                                     ? 'border-primary text-primary'
@@ -358,26 +544,55 @@ export default function SettingsPage() {
                                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Budi Santoso"
                                             />
+                                            <p className="mt-1 text-xs text-gray-500">Nama untuk tampilan di profil (bisa diubah kapan saja).</p>
                                         </div>
 
-                                        {/* Username */}
+                                        {/* Username with Cooldown */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Username
                                             </label>
-                                            <div className="flex">
-                                                <span className="inline-flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">
-                                                    @
-                                                </span>
-                                                <input
-                                                    type="text"
-                                                    value={formData.username}
-                                                    onChange={(e) => updateField('username', e.target.value)}
-                                                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                    placeholder="budisantoso"
-                                                />
-                                            </div>
-                                            <p className="mt-1 text-xs text-gray-500">Username akan muncul di URL profil Anda.</p>
+                                            {usernameInfo?.canUpdate ? (
+                                                <>
+                                                    <div className="flex">
+                                                        <span className="inline-flex items-center px-3 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-gray-500 text-sm">
+                                                            @
+                                                        </span>
+                                                        <input
+                                                            type="text"
+                                                            value={formData.username}
+                                                            onChange={(e) => updateField('username', e.target.value)}
+                                                            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                            placeholder="budisantoso"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-1">
+                                                        <p className="text-xs text-gray-500">3-20 karakter, huruf & angka saja.</p>
+                                                        {usernameStatus === 'checking' && (
+                                                            <span className="text-xs text-gray-400">Memeriksa...</span>
+                                                        )}
+                                                        {usernameStatus === 'available' && (
+                                                            <span className="text-xs text-green-600">✓ Tersedia</span>
+                                                        )}
+                                                        {usernameStatus === 'taken' && (
+                                                            <span className="text-xs text-red-500">✗ Tidak tersedia</span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <AlertCircle className="w-4 h-4 text-amber-500" />
+                                                        <span className="text-sm font-medium text-gray-700">@{usernameInfo?.currentUsername}</span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-600 mb-2">
+                                                        Username dapat diubah dalam {usernameInfo?.remainingDays} hari lagi
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        Tersedia pada: {usernameInfo?.nextUpdateDate ? new Date(usernameInfo.nextUpdateDate).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Location */}
@@ -421,19 +636,32 @@ export default function SettingsPage() {
                                         {/* WhatsApp */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                No. WhatsApp
+                                                No. WhatsApp *
                                             </label>
-                                            <div className="relative">
-                                                <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                                <input
-                                                    type="tel"
-                                                    value={formData.whatsapp}
-                                                    onChange={(e) => updateField('whatsapp', e.target.value)}
-                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                                    placeholder="081234567890"
-                                                />
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 relative">
+                                                    <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                                    <input
+                                                        type="tel"
+                                                        value={formData.whatsapp}
+                                                        disabled
+                                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                                                        placeholder="081234567890"
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={openPhoneModal}
+                                                    className="flex-shrink-0"
+                                                >
+                                                    <Edit className="w-4 h-4 mr-1" />
+                                                    Ubah
+                                                </Button>
                                             </div>
-                                            <p className="mt-1 text-xs text-gray-500">Nomor WhatsApp untuk chat dengan pembeli.</p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Nomor WhatsApp utama untuk chat dengan pembeli.
+                                            </p>
                                         </div>
 
                                         {/* Phone */}
@@ -451,9 +679,10 @@ export default function SettingsPage() {
                                                     placeholder="021-12345678"
                                                 />
                                             </div>
+                                            <p className="mt-1 text-xs text-gray-500">Nomor telepon kantor/toko (opsional).</p>
                                         </div>
 
-                                        {/* Email (Read Only) */}
+                                        {/* Email (Editable now) */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Email
@@ -463,17 +692,62 @@ export default function SettingsPage() {
                                                 <input
                                                     type="email"
                                                     value={formData.email}
-                                                    disabled
-                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                                                    onChange={(e) => updateField('email', e.target.value)}
+                                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                    placeholder="nama@email.com"
                                                 />
                                             </div>
-                                            <p className="mt-1 text-xs text-gray-500">Email tidak dapat diubah. Hubungi admin untuk mengubah email.</p>
+                                            <p className="mt-1 text-xs text-gray-500">Untuk notifikasi dan pemulihan password.</p>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Business Tab */}
-                                {activeTab === 'business' && session?.user?.role === 'DEALER' && (
+                                {/* Security Tab (New) */}
+                                {activeTab === 'security' && (
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Ubah Password</h3>
+                                            <p className="text-sm text-gray-500 mb-6">
+                                                Ganti password untuk keamanan akun Anda.
+                                            </p>
+                                            <Link href="/dashboard/settings/change-password">
+                                                <Button className="w-full md:w-auto">
+                                                    <KeyRound className="w-4 h-4 mr-2" />
+                                                    Ubah Password
+                                                </Button>
+                                            </Link>
+                                        </div>
+
+                                        <hr className="border-gray-200" />
+
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Status Akun</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between py-2">
+                                                    <span className="text-sm text-gray-600">Email</span>
+                                                    <span className="text-sm font-medium text-gray-800">
+                                                        {userProfile?.email || 'Tidak diatur'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between py-2">
+                                                    <span className="text-sm text-gray-600">Username</span>
+                                                    <span className="text-sm font-medium text-gray-800">
+                                                        @{userProfile?.username || 'Tidak diatur'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between py-2">
+                                                    <span className="text-sm text-gray-600">Role</span>
+                                                    <Badge variant={isDealer ? 'primary' : 'info'} size="sm">
+                                                        {userProfile?.role}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Business Tab (DEALER only) */}
+                                {activeTab === 'business' && isDealer && (
                                     <div className="space-y-6">
                                         {/* Showroom Name */}
                                         <div>
@@ -487,12 +761,13 @@ export default function SettingsPage() {
                                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                                                 placeholder="Auto Space Motor"
                                             />
+                                            <p className="mt-1 text-xs text-gray-500">Nama showroom akan muncul di kartu profil.</p>
                                         </div>
 
                                         {/* Address */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Alamat Lengkap
+                                                Alamat Showroom
                                             </label>
                                             <textarea
                                                 value={formData.address}
@@ -505,8 +780,8 @@ export default function SettingsPage() {
                                     </div>
                                 )}
 
-                                {/* Response Tab */}
-                                {activeTab === 'response' && (
+                                {/* Response Tab (DEALER only) */}
+                                {activeTab === 'response' && isDealer && (
                                     <div className="space-y-6">
                                         {/* Response Time */}
                                         <div>
@@ -524,7 +799,7 @@ export default function SettingsPage() {
                                                 <option value="8">8 Jam</option>
                                                 <option value="24">24 Jam</option>
                                             </select>
-                                            <p className="mt-1 text-xs text-gray-500">Waktu respon yang ditampilkan di profil kartu Anda.</p>
+                                            <p className="mt-1 text-xs text-gray-500">Waktu respon yang ditampilkan di kartu profil.</p>
                                         </div>
 
                                         {/* Business Hours */}
@@ -547,7 +822,7 @@ export default function SettingsPage() {
                                                                     businessHours: {
                                                                         ...prev.businessHours,
                                                                         [day.key]: {
-                                                                            ...prev.businessHours[day.key as keyof typeof formData.businessHours],
+                                                                            ...prev.businessHours[day.key as keyof typeof prev.businessHours],
                                                                             enabled: e.target.checked
                                                                         }
                                                                     }
@@ -564,7 +839,7 @@ export default function SettingsPage() {
                                                                     businessHours: {
                                                                         ...prev.businessHours,
                                                                         [day.key]: {
-                                                                            ...prev.businessHours[day.key as keyof typeof formData.businessHours],
+                                                                            ...prev.businessHours[day.key as keyof typeof prev.businessHours],
                                                                             open: e.target.value
                                                                         }
                                                                     }
@@ -583,7 +858,7 @@ export default function SettingsPage() {
                                                                     businessHours: {
                                                                         ...prev.businessHours,
                                                                         [day.key]: {
-                                                                            ...prev.businessHours[day.key as keyof typeof formData.businessHours],
+                                                                            ...prev.businessHours[day.key as keyof typeof prev.businessHours],
                                                                             close: e.target.value
                                                                         }
                                                                     }
@@ -636,7 +911,7 @@ export default function SettingsPage() {
                         <div className="sticky top-20">
                             <div className="mb-4">
                                 <h3 className="text-lg font-semibold text-secondary">Live Preview</h3>
-                                <p className="text-sm text-gray-500">Tampilan profil kartu Anda</p>
+                                <p className="text-sm text-gray-500">Tampilan kartu profil Anda</p>
                             </div>
 
                             {/* Premium Profile Card Preview */}
@@ -687,7 +962,7 @@ export default function SettingsPage() {
 
                                         <h3 className="text-lg font-bold text-secondary mb-1">{displayName}</h3>
                                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                                            <Badge variant={session?.user?.role === 'DEALER' ? 'primary' : 'info'} size="sm">
+                                            <Badge variant={isDealer ? 'primary' : 'info'} size="sm">
                                                 {displayType}
                                             </Badge>
                                             {isVerified && (
@@ -769,6 +1044,123 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Phone Change Modal */}
+            {showPhoneModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                    Ubah Nomor WhatsApp
+                                </h3>
+                                <button
+                                    onClick={() => setShowPhoneModal(false)}
+                                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-gray-500" />
+                                </button>
+                            </div>
+
+                            {phoneError && (
+                                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 text-sm">
+                                    {phoneError}
+                                </div>
+                            )}
+
+                            {phoneModalStep === 'input' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Nomor WhatsApp Baru
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            value={newPhone}
+                                            onChange={(e) => setNewPhone(e.target.value)}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                            placeholder="+628123456789"
+                                        />
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            Format: +62812xxxx atau 0812xxxx
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setShowPhoneModal(false)}
+                                            className="flex-1"
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button
+                                            onClick={handleSendPhoneOtp}
+                                            className="flex-1"
+                                            isLoading={phoneLoading}
+                                            disabled={!newPhone || newPhone.length < 11}
+                                        >
+                                            Kirim OTP
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {phoneModalStep === 'otp' && (
+                                <div className="space-y-4">
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                        <p className="text-sm text-blue-800">
+                                            OTP dikirim ke <strong>{newPhone}</strong>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Kode OTP
+                                        </label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={6}
+                                            value={phoneOtp}
+                                            onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, ''))}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-center text-2xl tracking-widest"
+                                            placeholder="000000"
+                                        />
+                                        {phoneOtpCountdown > 0 ? (
+                                            <p className="mt-2 text-xs text-gray-500 text-center">
+                                                Kirim ulang dalam {formatPhoneCooldown(phoneOtpCountdown)}
+                                            </p>
+                                        ) : (
+                                            <button
+                                                onClick={handleSendPhoneOtp}
+                                                className="mt-2 text-xs text-primary hover:underline w-full"
+                                            >
+                                                Kirim ulang OTP
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => setPhoneModalStep('input')}
+                                            className="flex-1"
+                                        >
+                                            Kembali
+                                        </Button>
+                                        <Button
+                                            onClick={handleVerifyPhoneOtp}
+                                            className="flex-1"
+                                            isLoading={phoneLoading}
+                                            disabled={phoneOtp.length !== 6}
+                                        >
+                                            Verifikasi
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, SlidersHorizontal, Grid, List, ChevronDown, X } from 'lucide-react'
 import { Button, Badge } from '@/components/ui'
 import { CarCard } from '@/components/features'
@@ -38,6 +39,7 @@ interface Listing {
 }
 
 export default function MobilBekasPage() {
+    const router = useRouter()
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [showFilters, setShowFilters] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
@@ -45,6 +47,7 @@ export default function MobilBekasPage() {
     const [loading, setLoading] = useState(true)
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
+    const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
 
     // Filter states
     const [selectedBrand, setSelectedBrand] = useState('')
@@ -130,6 +133,62 @@ export default function MobilBekasPage() {
         if (filter === selectedPriceRange) setSelectedPriceRange('')
         if (filter === selectedMileageRange) setSelectedMileageRange('')
         if (filter === selectedBodyType) setSelectedBodyType('')
+    }
+
+    // Check favorite status for all listings
+    useEffect(() => {
+        const checkFavorites = async () => {
+            if (listings.length === 0) return
+
+            try {
+                const promises = listings.map(async (listing) => {
+                    const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
+                    if (res.ok) {
+                        const data = await res.json()
+                        return { id: listing.id, favorited: data.favorited }
+                    }
+                    return { id: listing.id, favorited: false }
+                })
+
+                const results = await Promise.all(promises)
+                const favIds = new Set(results.filter((r) => r.favorited).map((r) => r.id))
+                setFavoritedIds(favIds)
+            } catch (err) {
+                console.error('Error checking favorites:', err)
+            }
+        }
+
+        checkFavorites()
+    }, [listings])
+
+    const handleFavoriteClick = async (id: string) => {
+        try {
+            const res = await fetch('/api/favorites/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingId: id })
+            })
+
+            if (res.status === 401) {
+                router.push('/login')
+                return
+            }
+
+            if (res.ok) {
+                const data = await res.json()
+                setFavoritedIds((prev) => {
+                    const newSet = new Set(prev)
+                    if (data.favorited) {
+                        newSet.add(id)
+                    } else {
+                        newSet.delete(id)
+                    }
+                    return newSet
+                })
+            }
+        } catch (err) {
+            console.error('Error toggling favorite:', err)
+        }
     }
 
     return (
@@ -409,6 +468,8 @@ export default function MobilBekasPage() {
                                             condition={listing.condition}
                                             transmission={listing.transmission}
                                             fuelType={listing.fuelType}
+                                            isFavorite={favoritedIds.has(listing.id)}
+                                            onFavoriteClick={handleFavoriteClick}
                                         />
                                     ))}
                                 </div>

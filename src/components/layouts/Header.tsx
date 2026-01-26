@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { MobileLoginSheet, openLoginSheet } from '@/components/features/MobileLoginSheet'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 const navLinks = [
     { href: '/mobil-baru', label: 'Mobil Baru' },
@@ -32,6 +33,7 @@ export function Header() {
     const [userMenuOpen, setUserMenuOpen] = useState(false)
     const pathname = usePathname()
     const { data: session, status } = useSession()
+    const { user: currentUser } = useCurrentUser()
 
     const isActive = (href: string) => pathname === href
 
@@ -87,9 +89,9 @@ export function Header() {
                                         className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                            {session.user.avatar ? (
+                                            {currentUser?.avatar ? (
                                                 <img
-                                                    src={session.user.avatar || ''}
+                                                    src={currentUser.avatar}
                                                     alt={session.user.name || 'User'}
                                                     className="w-8 h-8 rounded-full object-cover"
                                                 />

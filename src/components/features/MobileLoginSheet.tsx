@@ -2,19 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { BottomSheet } from '@/components/ui'
 import { Button } from '@/components/ui'
 import { Input } from '@/components/ui'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Lock } from 'lucide-react'
 
 export function MobileLoginSheet() {
     const router = useRouter()
+    const { update: updateSession } = useSession()
     const [isOpen, setIsOpen] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
+    const [rememberMe, setRememberMe] = useState(true)
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
     const [formData, setFormData] = useState({
-        email: '',
+        identifier: '',
         password: '',
     })
 
@@ -28,23 +31,43 @@ export function MobileLoginSheet() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        setError('')
 
         try {
             const result = await signIn('credentials', {
-                email: formData.email,
+                identifier: formData.identifier,
                 password: formData.password,
+                rememberMe: rememberMe,
                 redirect: false,
             })
 
             if (result?.ok) {
-                setIsOpen(false)
-                router.refresh()
+                // Update session to get latest user data
+                await updateSession()
+
+                // Fetch current session to check user role
+                const sessionRes = await fetch('/api/auth/session')
+                if (sessionRes.ok) {
+                    const session = await sessionRes.json()
+                    const userRole = session?.user?.role
+
+                    // Determine redirect URL based on role
+                    const redirectUrl = userRole === 'ADMIN' ? '/admin' : '/dashboard'
+
+                    setIsOpen(false)
+                    router.push(redirectUrl)
+                    router.refresh()
+                } else {
+                    // Fallback to dashboard if session fetch fails
+                    setIsOpen(false)
+                    router.refresh()
+                }
             } else {
-                alert(result?.error || 'Login gagal')
+                setError(result?.error || 'Login gagal')
             }
         } catch (error) {
             console.error('Login error:', error)
-            alert('Terjadi kesalahan saat login')
+            setError('Terjadi kesalahan saat login')
         } finally {
             setIsLoading(false)
         }
@@ -52,6 +75,7 @@ export function MobileLoginSheet() {
 
     const handleClose = () => {
         setIsOpen(false)
+        setError('')
     }
 
     const switchToRegister = () => {
@@ -69,23 +93,28 @@ export function MobileLoginSheet() {
             title="Masuk ke CepetDeal"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Identifier */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
+                        Username, Email, atau WhatsApp
                     </label>
                     <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <Input
-                            type="email"
-                            placeholder="nama@email.com"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            type="text"
+                            placeholder="john_doe123"
+                            value={formData.identifier}
+                            onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                             required
                             className="pl-10"
                         />
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                        Masukkan username, email, atau WhatsApp
+                    </p>
                 </div>
 
+                {/* Password */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         Password
@@ -94,7 +123,7 @@ export function MobileLoginSheet() {
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <Input
                             type={showPassword ? 'text' : 'password'}
-                            placeholder="••••••••"
+                            placeholder="Masukkan password"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             required
@@ -114,17 +143,34 @@ export function MobileLoginSheet() {
                     </div>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm">
+                        {error}
+                    </div>
+                )}
+
+                {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
-                    <a
-                        href="#"
-                        onClick={(e) => {
-                            e.preventDefault()
-                            // TODO: Implement forgot password
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        />
+                        <span className="text-sm text-gray-700">Ingat Saya</span>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            handleClose()
+                            router.push('/forgot-password')
                         }}
                         className="text-sm text-primary hover:underline"
                     >
                         Lupa Password?
-                    </a>
+                    </button>
                 </div>
 
                 <Button
@@ -158,24 +204,11 @@ export function MobileLoginSheet() {
                     </div>
                 </div>
 
-                {/* Social Login */}
-                <div className="space-y-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full flex items-center justify-center gap-2"
-                        onClick={() => {
-                            // TODO: Implement Google login
-                        }}
-                    >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24">
-                            <path
-                                fill="#4285F4"
-                                d="M22.56 12.25c0-.78-.07-1.53-.23-2.13-.77a10.44 10.44 0 0 0-1.53-.22c-.76-.3-1.18-.89-1.18-1.63V7.25c0-1.67 1.08-3.12 2.62-3.44 1.46.32 3.33 1.12 4.88.77a10.44 10.44 0 0 0 2.13.77c.75.3 1.17.89 1.18 1.63V19.5c0 .83.69 1.44 1.88 1.12 3.44-.3.32-.78-.77-1.18-.77-1.63V14.5c0-3.64-2.83-6.62-6.62-6.62-3.64 0-6.62 2.83-6.62 6.62v5.25c0 .46.06.92.15 1.3.33 1.55.72.23 1.16.36.37 1.88.76 1.88.76v2.36c0 .85-.34 1.53-1.11 2.07-.4.54-.54.89-.82-1.53-.82-2.73v-.4c0-1.4 1.05-2.81 2.62-3.13.78-.27.77-1.33.77-1.33 1.63v.88c0 .85-.34 1.53-1.11 2.07-.4.54-.54.89-.82-1.53-.82-2.73v-.4c0-1.4 1.05-2.81 2.62-3.13.78-.27.77-1.33.77-1.33 1.63v.88c0 .85-.34 1.53-1.11 2.07-.4.54-.54.89-.82-1.53-.82-2.73z"
-                            />
-                        </svg>
-                        Masuk dengan Google
-                    </Button>
+                {/* Info Text */}
+                <div className="text-center">
+                    <p className="text-xs text-gray-500">
+                        ☑️ Ingat Saya = 30 hari &nbsp;|&nbsp; ☐ = 1 hari
+                    </p>
                 </div>
             </form>
         </BottomSheet>

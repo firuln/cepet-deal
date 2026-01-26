@@ -23,7 +23,7 @@ import {
     Eye,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
-import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
+import { Button, Card, CardContent, Input, Dropdown, Badge, LocationDetectorModal } from '@/components/ui'
 import {
     TRANSMISSIONS,
     FUEL_TYPES,
@@ -387,6 +387,7 @@ function NewUsedListingForm() {
     const [lastSaved, setLastSaved] = useState<Date | null>(null)
     const [showAllYears, setShowAllYears] = useState(false)
     const [showAllFeatures, setShowAllFeatures] = useState(false)
+    const [showLocationModal, setShowLocationModal] = useState(false)
 
     // Form data
     const [formData, setFormData] = useState({
@@ -400,11 +401,14 @@ function NewUsedListingForm() {
         fuelType: '',
         bodyType: '',
         mileage: '',
+        engineSize: '',
         color: '',
         // Step 3
         price: '',
         negotiable: true,
         location: '',
+        latitude: '',
+        longitude: '',
         // Step 4
         description: '',
         // Step 5
@@ -447,8 +451,31 @@ function NewUsedListingForm() {
         }
     }, [])
 
+    // Auto-fill location from localStorage (Smart Location Detection)
+    useEffect(() => {
+        const savedLocation = localStorage.getItem('user_location')
+        if (savedLocation && !formData.location) {
+            try {
+                const loc = JSON.parse(savedLocation)
+                updateFormData('location', loc.city)
+                updateFormData('latitude', loc.latitude.toString())
+                updateFormData('longitude', loc.longitude.toString())
+            } catch (e) {
+                console.error('Failed to parse saved location:', e)
+            }
+        }
+    }, [])
+
     const updateFormData = (field: string, value: string | boolean) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
+    }
+
+    // Handle location detected from LocationDetectorModal
+    const handleLocationDetected = (loc: { latitude: number; longitude: number; city: string }) => {
+        updateFormData('location', loc.city)
+        updateFormData('latitude', loc.latitude.toString())
+        updateFormData('longitude', loc.longitude.toString())
+        setShowLocationModal(false)
     }
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -727,6 +754,14 @@ function NewUsedListingForm() {
                                         onChange={(e) => updateFormData('mileage', e.target.value)}
                                         required
                                     />
+
+                                    <Input
+                                        label="Kapasitas Mesin (cc)"
+                                        placeholder="Contoh: 1500"
+                                        type="number"
+                                        value={formData.engineSize}
+                                        onChange={(e) => updateFormData('engineSize', e.target.value)}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -774,12 +809,29 @@ function NewUsedListingForm() {
                                     <p className="text-sm font-semibold text-secondary">Lokasi</p>
                                 </div>
                                 <div className="p-4">
-                                    <Input
-                                        label="Kota/Kabupaten"
-                                        placeholder="Contoh: Jakarta Selatan"
-                                        value={formData.location}
-                                        onChange={(e) => updateFormData('location', e.target.value)}
-                                    />
+                                    <div className="relative">
+                                        <Input
+                                            label="Kota/Kabupaten"
+                                            placeholder="Contoh: Jakarta Selatan"
+                                            value={formData.location}
+                                            onChange={(e) => updateFormData('location', e.target.value)}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowLocationModal(true)}
+                                            className="absolute right-3 top-8 p-2 text-gray-500 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                                            title="Deteksi Lokasi Otomatis"
+                                        >
+                                            <MapPin className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    {formData.latitude && formData.longitude && (
+                                        <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1.5 rounded-lg">
+                                            <MapPin className="w-3 h-3" />
+                                            <span>Koordinat tersimpan: {formData.latitude}, {formData.longitude}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1097,6 +1149,13 @@ function NewUsedListingForm() {
                     </div>
                 </div>
             </div>
+
+            {/* Location Detector Modal */}
+            <LocationDetectorModal
+                isOpen={showLocationModal}
+                onClose={() => setShowLocationModal(false)}
+                onLocationDetected={handleLocationDetected}
+            />
         </DashboardLayout>
     )
 }

@@ -5,7 +5,6 @@ import { Calculator, DollarSign, TrendingDown, Info } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { ConditionalLayout } from '@/components/layouts/ConditionalLayout'
 
 export default function CalculatorPage() {
     const [price, setPrice] = useState('')
@@ -92,8 +91,7 @@ export default function CalculatorPage() {
     }
 
     return (
-        <ConditionalLayout>
-            <div className="max-w-4xl mx-auto space-y-6 py-6">
+        <div className="max-w-4xl mx-auto space-y-6 py-6">
                 {/* Header */}
                 <div className="text-center space-y-2">
                     <div className="flex items-center justify-center gap-2">
@@ -331,7 +329,6 @@ export default function CalculatorPage() {
                         </div>
                     </div>
                 </div>
-            </div>
-        </ConditionalLayout>
+        </div>
     )
 }

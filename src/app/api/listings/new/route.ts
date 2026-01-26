@@ -62,6 +62,7 @@ export async function POST(req: Request) {
             description,
             images,
             features,
+            specs,
         } = data
 
         // Validation - NEW cars don't need mileage
@@ -139,6 +140,27 @@ export async function POST(req: Request) {
                 userId: user.id,
                 brandId: brandRecord.id,
                 modelId: modelRecord.id,
+                // Technical Specifications
+                enginePower: specs?.enginePower,
+                engineTorque: specs?.engineTorque,
+                cylinders: specs?.cylinders,
+                topSpeed: specs?.topSpeed,
+                acceleration: specs?.acceleration,
+                length: specs?.length,
+                width: specs?.width,
+                height: specs?.height,
+                wheelbase: specs?.wheelbase,
+                groundClearance: specs?.groundClearance,
+                seats: specs?.seats,
+                doors: specs?.doors,
+                fuelTank: specs?.fuelTank,
+                luggageCapacity: specs?.luggageCapacity,
+                warrantyYears: specs?.warrantyYears,
+                warrantyKm: specs?.warrantyKm,
+                airbags: specs?.airbags,
+                abs: specs?.abs,
+                esp: specs?.esp,
+                tractionControl: specs?.tractionControl,
             },
             include: {
                 brand: true,

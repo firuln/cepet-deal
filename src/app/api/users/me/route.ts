@@ -23,8 +23,8 @@ export async function GET(req: Request) {
                 name: true,
                 email: true,
                 username: true,
+                usernameUpdatedAt: true,
                 phone: true,
-                whatsapp: true,
                 location: true,
                 bio: true,
                 avatar: true,
@@ -101,8 +101,8 @@ export async function PUT(req: Request) {
         const {
             name,
             username,
+            email,
             phone,
-            whatsapp,
             location,
             bio,
             avatar,
@@ -123,8 +123,56 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        // Check if username is already taken by another user (only if field exists)
+        // Validate email format if provided
+        if (email && email !== user.email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(email)) {
+                return NextResponse.json(
+                    { error: 'Format email tidak valid' },
+                    { status: 400 }
+                )
+            }
+
+            // Check if email is already taken
+            const existingEmailUser = await prisma.user.findFirst({
+                where: {
+                    email: email.trim().toLowerCase(),
+                    NOT: { id: user.id }
+                }
+            })
+
+            if (existingEmailUser) {
+                return NextResponse.json(
+                    { error: 'Email sudah digunakan oleh user lain' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        // Check if username is being changed and validate 30-day cooldown
         if (username && username !== user.username) {
+            const COOLDOWN_DAYS = 30
+            const lastUpdateDate = user.usernameUpdatedAt || user.createdAt
+            const now = new Date()
+            const daysSinceLastUpdate = Math.floor(
+                (now.getTime() - lastUpdateDate.getTime()) / (1000 * 60 * 60 * 24)
+            )
+
+            if (daysSinceLastUpdate < COOLDOWN_DAYS) {
+                const remainingDays = COOLDOWN_DAYS - daysSinceLastUpdate
+                return NextResponse.json(
+                    {
+                        error: `Username dapat diubah lagi dalam ${remainingDays} hari.`,
+                        remainingDays,
+                        nextUpdateDate: new Date(
+                            lastUpdateDate.getTime() + COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+                        ).toISOString()
+                    },
+                    { status: 429 }
+                )
+            }
+
+            // Check if username is already taken
             try {
                 const existingUser = await prisma.user.findUnique({
                     where: { username }
@@ -132,7 +180,7 @@ export async function PUT(req: Request) {
 
                 if (existingUser && existingUser.id !== user.id) {
                     return NextResponse.json(
-                        { error: 'Username already taken' },
+                        { error: 'Username sudah digunakan oleh user lain' },
                         { status: 400 }
                     )
                 }
@@ -147,8 +195,12 @@ export async function PUT(req: Request) {
 
         if (name) updateData.name = name
         if (username !== undefined) updateData.username = username || null
+        // Set usernameUpdatedAt when username is changed to a new value
+        if (username && username !== user.username) {
+            updateData.usernameUpdatedAt = new Date()
+        }
+        if (email) updateData.email = email.trim().toLowerCase()
         if (phone !== undefined) updateData.phone = phone || null
-        if (whatsapp !== undefined) updateData.whatsapp = whatsapp || null
         if (location !== undefined) updateData.location = location || null
         if (bio !== undefined) updateData.bio = bio || null
         if (avatar !== undefined) updateData.avatar = avatar || null
@@ -185,7 +237,6 @@ export async function PUT(req: Request) {
                 email: true,
                 username: true,
                 phone: true,
-                whatsapp: true,
                 location: true,
                 bio: true,
                 avatar: true,
@@ -236,7 +287,6 @@ export async function PUT(req: Request) {
                         email: true,
                         username: true,
                         phone: true,
-                        whatsapp: true,
                         location: true,
                         bio: true,
                         avatar: true,

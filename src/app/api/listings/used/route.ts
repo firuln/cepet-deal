@@ -49,9 +49,12 @@ export async function POST(req: Request) {
             bodyType,
             color,
             mileage,
+            engineSize,
             price,
             negotiable,
             location = 'Indonesia',
+            latitude,
+            longitude,
             title,
             description,
             images,
@@ -181,6 +184,32 @@ export async function POST(req: Request) {
             }
         }
 
+        // Parse engineSize if provided
+        let parsedEngineSize: number | null = null
+        if (engineSize) {
+            parsedEngineSize = parseInt(engineSize)
+            if (isNaN(parsedEngineSize) || parsedEngineSize < 0) {
+                return NextResponse.json(
+                    { error: 'Kapasitas mesin tidak valid' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        // Parse latitude and longitude if provided
+        let parsedLatitude: number | null = null
+        let parsedLongitude: number | null = null
+        if (latitude && longitude) {
+            parsedLatitude = parseFloat(latitude)
+            parsedLongitude = parseFloat(longitude)
+            if (isNaN(parsedLatitude) || isNaN(parsedLongitude)) {
+                return NextResponse.json(
+                    { error: 'Koordinat lokasi tidak valid' },
+                    { status: 400 }
+                )
+            }
+        }
+
         // Create USED car listing with features
         const listing = await prisma.listing.create({
             data: {
@@ -193,9 +222,12 @@ export async function POST(req: Request) {
                 condition: 'USED',
                 mileage: parsedMileage,
                 color,
+                engineSize: parsedEngineSize,
                 price: BigInt(parseInt(price)),
                 description: fullDescription.trim(),
                 location,
+                latitude: parsedLatitude,
+                longitude: parsedLongitude,
                 images: images as string[],
                 status: user.role === 'ADMIN' ? ListingStatus.ACTIVE : ListingStatus.PENDING,
                 userId: user.id,

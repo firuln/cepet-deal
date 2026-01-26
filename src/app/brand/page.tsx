@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Car, ChevronRight, Search } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 async function getBrands() {
     const brands = await prisma.brand.findMany({
         orderBy: { name: 'asc' },

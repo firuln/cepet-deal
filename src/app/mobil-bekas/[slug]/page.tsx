@@ -30,7 +30,7 @@ import {
     Sparkles,
     AlertTriangle,
 } from 'lucide-react'
-import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer, CreditCalculator, VehicleHistory, FAQAccordion, NewCarCard, CompactCarCard } from '@/components/ui'
+import { Button, Badge, ImageSlider, Tabs, TabsList, TabsTrigger, TabsContent, YouTubePlayer, CreditCalculator, VehicleHistory, FAQAccordion, NewCarCard, CompactCarCard, useToast } from '@/components/ui'
 import { CarCard, CarFeatures } from '@/components/features'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
@@ -66,11 +66,18 @@ interface ListingDetail {
     seller: {
         id: string
         name: string
+        username?: string
         type: 'DEALER' | 'PERSONAL'
         verified: boolean
         phone?: string
         avatar?: string
         memberSince: string
+        location?: string
+        bio?: string
+        dealer?: {
+            companyName?: string
+            address?: string
+        }
     }
     // Vehicle History Fields
     pajakStnk?: string | null
@@ -134,6 +141,7 @@ const BODY_TYPE_LABELS: Record<string, string> = {
 export default function MobilBekasDetailPage() {
     const params = useParams()
     const router = useRouter()
+    const { addToast } = useToast()
     const slug = params.slug as string
     const [listing, setListing] = useState<ListingDetail | null>(null)
     const [relatedCars, setRelatedCars] = useState<RelatedCar[]>([])
@@ -149,7 +157,8 @@ export default function MobilBekasDetailPage() {
                 const res = await fetch(`/api/listings/${slug}`)
 
                 if (!res.ok) {
-                    throw new Error('Listing not found')
+                    const errorData = await res.json().catch(() => ({ error: 'Listing not found' }))
+                    throw new Error(errorData.error || 'Listing not found')
                 }
 
                 const data = await res.json()
@@ -188,6 +197,101 @@ export default function MobilBekasDetailPage() {
             fetchListing()
         }
     }, [slug, router])
+
+    // Check if listing is favorited
+    useEffect(() => {
+        const checkFavoriteStatus = async () => {
+            if (!listing?.id) return
+
+            try {
+                const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
+                if (res.ok) {
+                    const data = await res.json()
+                    setIsFavorited(data.favorited)
+                }
+            } catch (err) {
+                console.error('Error checking favorite status:', err)
+            }
+        }
+
+        checkFavoriteStatus()
+    }, [listing?.id])
+
+    const handleFavorite = async () => {
+        if (!listing?.id) return
+
+        try {
+            const res = await fetch('/api/favorites/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingId: listing.id })
+            })
+
+            if (res.status === 401) {
+                addToast({
+                    type: 'warning',
+                    title: 'Login Diperlukan',
+                    message: 'Silakan login untuk menyimpan listing'
+                })
+                router.push('/login')
+                return
+            }
+
+            if (!res.ok) {
+                throw new Error('Failed to toggle favorite')
+            }
+
+            const data = await res.json()
+            setIsFavorited(data.favorited)
+
+            addToast({
+                type: 'success',
+                title: data.favorited ? 'Disimpan!' : 'Dihapus',
+                message: data.favorited ? 'Listing ditambahkan ke favorit' : 'Listing dihapus dari favorit'
+            })
+        } catch (err) {
+            console.error('Error toggling favorite:', err)
+            addToast({
+                type: 'error',
+                title: 'Gagal',
+                message: 'Terjadi kesalahan, silakan coba lagi'
+            })
+        }
+    }
+
+    const handleShare = async () => {
+        const shareUrl = `${window.location.origin}/mobil-bekas/${slug}`
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ url: shareUrl })) {
+            try {
+                await navigator.share({
+                    title: listing?.title || 'Mobil Bekas',
+                    text: listing?.title || 'Lihat listing mobil bekas ini di CepetDeal',
+                    url: shareUrl
+                })
+            } catch (err) {
+                // User cancelled or error - no action needed
+                console.log('Share cancelled or failed:', err)
+            }
+        } else {
+            // Fallback: Copy to clipboard
+            try {
+                await navigator.clipboard.writeText(shareUrl)
+                addToast({
+                    type: 'success',
+                    title: 'Link Disalin!',
+                    message: 'Link listing berhasil disalin ke clipboard'
+                })
+            } catch (err) {
+                console.error('Failed to copy link:', err)
+                addToast({
+                    type: 'error',
+                    title: 'Gagal Menyalin',
+                    message: 'Gagal menyalin link, silakan coba lagi'
+                })
+            }
+        }
+    }
 
     const handleWhatsApp = () => {
         if (!listing?.seller.phone) return
@@ -534,7 +638,12 @@ export default function MobilBekasDetailPage() {
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="text-base font-bold text-secondary mb-1 truncate">{listing.seller.name}</h3>
+                                        <h3 className="text-base font-bold text-secondary mb-1 truncate">
+                                            {listing.seller.dealer?.companyName || listing.seller.name}
+                                        </h3>
+                                        {listing.seller.username && (
+                                            <p className="text-xs text-gray-500 truncate mb-1">@{listing.seller.username}</p>
+                                        )}
                                         <div className="flex items-center gap-2">
                                             <Badge variant={listing.seller.type === 'DEALER' ? 'primary' : 'info'} size="sm">
                                                 {listing.seller.type === 'DEALER' ? 'Dealer' : 'Pribadi'}
@@ -546,6 +655,14 @@ export default function MobilBekasDetailPage() {
                                                 </span>
                                             )}
                                         </div>
+                                        {listing.seller.bio && (
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {listing.seller.bio.length > 40
+                                                    ? listing.seller.bio.substring(0, 40) + '...'
+                                                    : listing.seller.bio
+                                                }
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
@@ -681,7 +798,12 @@ export default function MobilBekasDetailPage() {
                                             </div>
                                         </div>
 
-                                        <h3 className="text-lg font-bold text-secondary mb-1">{listing.seller.name}</h3>
+                                        <h3 className="text-lg font-bold text-secondary mb-1">
+                                            {listing.seller.dealer?.companyName || listing.seller.name}
+                                        </h3>
+                                        {listing.seller.username && (
+                                            <p className="text-sm text-gray-500 mb-1">@{listing.seller.username}</p>
+                                        )}
                                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                                             <Badge variant={listing.seller.type === 'DEALER' ? 'primary' : 'info'} size="sm">
                                                 {listing.seller.type === 'DEALER' ? 'Dealer' : 'Pribadi'}
@@ -693,9 +815,17 @@ export default function MobilBekasDetailPage() {
                                                 </span>
                                             )}
                                         </div>
+                                        {listing.seller.bio && (
+                                            <p className="text-xs text-gray-500 text-center max-w-xs mx-auto line-clamp-2">
+                                                {listing.seller.bio.length > 60
+                                                    ? listing.seller.bio.substring(0, 60) + '...'
+                                                    : listing.seller.bio
+                                                }
+                                            </p>
+                                        )}
                                         <div className="flex items-center gap-1 text-xs text-gray-400">
                                             <MapPin className="w-3 h-3" />
-                                            <span>{listing.location}</span>
+                                            <span>{listing.seller.location || listing.location}</span>
                                         </div>
                                     </div>
 
@@ -762,7 +892,7 @@ export default function MobilBekasDetailPage() {
                                     <p className="text-sm font-medium text-secondary mb-3">Simpan & Bagikan</p>
                                     <div className="flex gap-3">
                                         <button
-                                            onClick={() => setIsFavorited(!isFavorited)}
+                                            onClick={handleFavorite}
                                             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all duration-200 ${
                                                 isFavorited
                                                     ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
@@ -772,7 +902,10 @@ export default function MobilBekasDetailPage() {
                                             <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
                                             <span className="text-sm font-medium">{isFavorited ? 'Disimpan' : 'Simpan'}</span>
                                         </button>
-                                        <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200">
+                                        <button
+                                            onClick={handleShare}
+                                            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200"
+                                        >
                                             <Share2 className="w-5 h-5" />
                                             <span className="text-sm font-medium">Bagikan</span>
                                         </button>

@@ -14,10 +14,11 @@ import {
     DollarSign,
     CheckCircle,
     Loader2,
-    Wrench,
+    Settings,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
+import { SpecsFormAccordion, SpecsFormData } from '@/components/forms/SpecsFormAccordion'
 import {
     TRANSMISSIONS,
     FUEL_TYPES,
@@ -29,7 +30,7 @@ const steps = [
     { id: 2, title: 'Detail Mobil', icon: Info },
     { id: 3, title: 'Harga', icon: DollarSign },
     { id: 4, title: 'Foto & Deskripsi', icon: Camera },
-    { id: 5, title: 'Kondisi & Riwayat', icon: Wrench },
+    { id: 5, title: 'Spesifikasi Teknis', icon: Settings },
 ]
 
 const colors = [
@@ -292,16 +293,8 @@ function NewListingForm() {
         negotiable: true,
         // Step 4
         description: '',
-        // Step 5 - Vehicle History
-        pajakStnk: '',
-        pemakaian: '',
-        serviceTerakhir: '',
-        bpkbStatus: '',
-        kecelakaan: false,
-        kondisiMesin: '',
-        kondisiKaki: '',
-        kondisiAc: '',
-        kondisiBan: '',
+        // Step 5 - Technical Specifications
+        specs: {} as Partial<SpecsFormData>,
     }))
 
     // Auto-generate title from brand, model, variant
@@ -310,7 +303,7 @@ function NewListingForm() {
         return parts.join(' ') || 'Judul iklan akan otomatis dibuat'
     }, [formData.brand, formData.model, formData.variant])
 
-    const updateFormData = (field: string, value: string | boolean) => {
+    const updateFormData = (field: string, value: string | boolean | Partial<SpecsFormData>) => {
         setFormData((prev) => ({ ...prev, [field]: value }))
     }
 
@@ -342,6 +335,7 @@ function NewListingForm() {
                 images,
                 features: selectedFeatures,
                 condition: 'NEW',
+                specs: formData.specs,
             }
 
             const res = await fetch('/api/listings/new', {
@@ -726,112 +720,14 @@ function NewListingForm() {
                             </div>
                         )}
 
-                        {/* Step 5: Vehicle History (Kondisi & Riwayat) */}
+                        {/* Step 5: Technical Specifications */}
                         {currentStep === 5 && (
                             <div className="space-y-4 sm:space-y-6">
-                                <h2 className="text-base sm:text-lg font-semibold text-secondary">Kondisi & Riwayat Kendaraan</h2>
-
-                                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-                                    <p className="text-xs sm:text-sm text-blue-700">
-                                        <span className="font-medium">Info:</span> Isi data kondisi dan riwayat kendaraan untuk membantu pembeli membuat keputusan.
-                                    </p>
-                                </div>
-
-                                {/* Riwayat Dokumen */}
-                                <div className="space-y-3 sm:space-y-4">
-                                    <h3 className="text-sm font-medium text-secondary">Riwayat Dokumen</h3>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                        <div>
-                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                                                Pajak STNK
-                                            </label>
-                                            <Input
-                                                type="month"
-                                                value={formData.pajakStnk}
-                                                onChange={(e) => updateFormData('pajakStnk', e.target.value)}
-                                                placeholder="Pilih bulan & tahun"
-                                            />
-                                        </div>
-                                        <Dropdown
-                                            label="Pemakaian"
-                                            options={PEMAKAIAN_OPTIONS}
-                                            value={formData.pemakaian}
-                                            onChange={(val) => updateFormData('pemakaian', val)}
-                                            placeholder="Pilih pemakaian"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                        <Input
-                                            label="Service Terakhir"
-                                            placeholder="Contoh: Agustus 2024 di 30.000 km"
-                                            value={formData.serviceTerakhir}
-                                            onChange={(e) => updateFormData('serviceTerakhir', e.target.value)}
-                                        />
-                                        <Dropdown
-                                            label="Status BPKB"
-                                            options={BPKB_STATUS_OPTIONS}
-                                            value={formData.bpkbStatus}
-                                            onChange={(val) => updateFormData('bpkbStatus', val)}
-                                            placeholder="Pilih status BPKB"
-                                        />
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            id="kecelakaan"
-                                            checked={formData.kecelakaan}
-                                            onChange={(e) => updateFormData('kecelakaan', e.target.checked)}
-                                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                                        />
-                                        <label htmlFor="kecelakaan" className="text-sm text-gray-600">
-                                            Mobil pernah mengalami kecelakaan
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* Kondisi Komponen */}
-                                <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
-                                    <h3 className="text-sm font-medium text-secondary">Kondisi Komponen</h3>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                        <Dropdown
-                                            label="Kondisi Mesin"
-                                            options={KONDISI_OPTIONS}
-                                            value={formData.kondisiMesin}
-                                            onChange={(val) => updateFormData('kondisiMesin', val)}
-                                            placeholder="Pilih kondisi"
-                                        />
-                                        <Dropdown
-                                            label="Kondisi Kaki-kaki"
-                                            options={KONDISI_OPTIONS}
-                                            value={formData.kondisiKaki}
-                                            onChange={(val) => updateFormData('kondisiKaki', val)}
-                                            placeholder="Pilih kondisi"
-                                        />
-                                        <Dropdown
-                                            label="Kondisi AC"
-                                            options={KONDISI_OPTIONS}
-                                            value={formData.kondisiAc}
-                                            onChange={(val) => updateFormData('kondisiAc', val)}
-                                            placeholder="Pilih kondisi"
-                                        />
-                                        <Dropdown
-                                            label="Kondisi Ban"
-                                            options={KONDISI_OPTIONS}
-                                            value={formData.kondisiBan}
-                                            onChange={(val) => updateFormData('kondisiBan', val)}
-                                            placeholder="Pilih kondisi"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Optional Note */}
-                                <p className="text-xs text-gray-500 mt-3 sm:mt-4">
-                                    * Semua field bersifat opsional. Kosongkan jika tidak ada informasi.
-                                </p>
+                                <SpecsFormAccordion
+                                    data={formData.specs}
+                                    onChange={(specs) => updateFormData('specs', specs)}
+                                    defaultOpen={false}
+                                />
                             </div>
                         )}
                     </CardContent>

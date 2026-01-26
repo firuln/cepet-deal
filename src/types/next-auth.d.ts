@@ -6,10 +6,8 @@ declare module 'next-auth' {
         user: {
             id: string
             role: string
-            avatar?: string | null
-            phone?: string | null
-            isDealer: boolean
-            dealerVerified: boolean
+            // Data lain diambil dari database melalui API /users/me
+            // avatar, phone, isDealer, dealerVerified tidak di-session
         } & DefaultSession['user']
     }
 
@@ -26,9 +24,6 @@ declare module 'next-auth/jwt' {
     interface JWT {
         id: string
         role: string
-        avatar?: string | null
-        phone?: string | null
-        isDealer: boolean
-        dealerVerified: boolean
+        // Hanya simpan data minimal di JWT
     }
 }

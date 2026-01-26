@@ -85,7 +85,7 @@ export function Dropdown({
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
                     {options.map((option) => (
                         <button
                             key={option.value}
@@ -96,7 +96,7 @@ export function Dropdown({
                             }}
                             className={cn(
                                 'w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors',
-                                option.value === value && 'bg-primary/5 text-primary'
+                                option.value === value && 'bg-primary/5 text-primary font-medium'
                             )}
                         >
                             {option.icon}

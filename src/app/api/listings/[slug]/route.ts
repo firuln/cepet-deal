@@ -27,13 +27,19 @@ export async function GET(
                     select: {
                         id: true,
                         name: true,
+                        username: true,
                         email: true,
                         phone: true,
                         avatar: true,
+                        location: true,
+                        bio: true,
                         role: true,
                         createdAt: true,
                         dealer: {
                             select: {
+                                id: true,
+                                companyName: true,
+                                address: true,
                                 verified: true
                             }
                         }
@@ -151,11 +157,18 @@ export async function GET(
             seller: {
                 id: listing.user.id,
                 name: listing.user.name,
+                username: listing.user.username,
                 type: listing.user.role === 'DEALER' ? 'DEALER' : 'PERSONAL',
                 verified: listing.user.dealer?.verified || false,
                 phone: listing.user.phone,
                 avatar: listing.user.avatar,
-                memberSince: new Date(listing.user.createdAt).getFullYear().toString()
+                location: listing.user.location,
+                bio: listing.user.bio,
+                memberSince: new Date(listing.user.createdAt).getFullYear().toString(),
+                dealer: listing.user.dealer ? {
+                    companyName: listing.user.dealer.companyName,
+                    address: listing.user.dealer.address,
+                } : null
             },
             // Vehicle History fields
             pajakStnk: listing.pajakStnk ? listing.pajakStnk.toISOString().split('T')[0].substring(0, 7) : null,
@@ -167,6 +180,24 @@ export async function GET(
             kondisiKaki: listing.kondisiKaki,
             kondisiAc: listing.kondisiAc,
             kondisiBan: listing.kondisiBan,
+            // Car Specifications (NEW)
+            enginePower: listing.enginePower,
+            engineTorque: listing.engineTorque,
+            cylinders: listing.cylinders,
+            seats: listing.seats,
+            doors: listing.doors,
+            length: listing.length,
+            width: listing.width,
+            height: listing.height,
+            wheelbase: listing.wheelbase,
+            groundClearance: listing.groundClearance,
+            fuelTank: listing.fuelTank,
+            luggageCapacity: listing.luggageCapacity,
+            topSpeed: listing.topSpeed,
+            acceleration: listing.acceleration,
+            warrantyYears: listing.warrantyYears,
+            warrantyKm: listing.warrantyKm,
+            specs: listing.specs,
             relatedCars: relatedListings.map(l => ({
                 id: l.id,
                 title: l.title,
