@@ -1,5 +1,8 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
-import { Car, Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin } from 'lucide-react'
+import { Car, Facebook, Instagram, Twitter, Youtube, Mail, Phone, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 
 const footerLinks = {
     'Jelajahi': [
@@ -38,6 +41,17 @@ const socialLinks = [
 ]
 
 export function Footer() {
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+        'Jelajahi': true,
+        'Merk Populer': false,
+        'Informasi': false,
+        'Layanan': false,
+    })
+
+    const toggleSection = (title: string) => {
+        setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }))
+    }
+
     return (
         <footer className="bg-secondary text-white">
             {/* Main Footer */}
@@ -79,11 +93,33 @@ export function Footer() {
                         </div>
                     </div>
 
-                    {/* Links */}
+                    {/* Links - Desktop: normal, Mobile: collapsible */}
                     {Object.entries(footerLinks).map(([title, links]) => (
-                        <div key={title}>
-                            <h3 className="font-semibold mb-4">{title}</h3>
-                            <ul className="space-y-2">
+                        <div
+                            key={title}
+                            className="border-t border-white/10 pt-4 md:border-t-0 md:pt-0"
+                        >
+                            {/* Desktop: normal heading, Mobile: collapsible button */}
+                            <button
+                                onClick={() => toggleSection(title)}
+                                className="flex items-center justify-between w-full mb-4 md:cursor-default"
+                            >
+                                <h3 className="font-semibold text-left">{title}</h3>
+                                <span className="md:hidden">
+                                    {openSections[title] ? (
+                                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                                    ) : (
+                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                    )}
+                                </span>
+                            </button>
+
+                            {/* Desktop: always visible, Mobile: collapsible */}
+                            <ul
+                                className={`space-y-2 md:block ${
+                                    openSections[title] ? 'block' : 'hidden'
+                                }`}
+                            >
                                 {links.map((link) => (
                                     <li key={link.href}>
                                         <Link

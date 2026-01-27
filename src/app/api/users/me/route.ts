@@ -110,6 +110,7 @@ export async function PUT(req: Request) {
             newPassword,
             showroomName,
             showroomAddress,
+            showroomCity,
             establishedYear,
         } = data
 
@@ -262,6 +263,7 @@ export async function PUT(req: Request) {
             const dealerData: any = {}
             if (showroomName !== undefined) dealerData.companyName = showroomName || null
             if (showroomAddress !== undefined) dealerData.address = showroomAddress || null
+            if (showroomCity !== undefined) dealerData.city = showroomCity || null
 
             if (Object.keys(dealerData).length > 0) {
                 if (user.dealer) {
@@ -272,7 +274,7 @@ export async function PUT(req: Request) {
                 } else {
                     await prisma.dealer.create({
                         data: {
-                            userId: user.id,
+                            user: { connect: { id: user.id } },
                             ...dealerData
                         }
                     })

@@ -61,6 +61,7 @@ interface FormData {
     email: string
     showroomName: string
     address: string
+    city: string
     responseTime: string
     businessHours: {
         monday: { open: string; close: string; enabled: boolean }
@@ -131,6 +132,7 @@ export default function SettingsPage() {
         email: '',
         showroomName: '',
         address: '',
+        city: '',
         responseTime: '2',
         businessHours: {
             monday: { open: '09:00', close: '17:00', enabled: true },
@@ -163,6 +165,7 @@ export default function SettingsPage() {
                         email: data.email || '',
                         showroomName: data.dealer?.companyName || '',
                         address: data.dealer?.address || '',
+                        city: data.dealer?.city || '',
                     }))
                     setAvatarPreview(data.avatar || null)
                 }
@@ -255,6 +258,7 @@ export default function SettingsPage() {
                     avatar: avatarPreview,
                     showroomName: formData.showroomName,
                     showroomAddress: formData.address,
+                    showroomCity: formData.city,
                 }),
             })
 
@@ -752,7 +756,7 @@ export default function SettingsPage() {
                                         {/* Showroom Name */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Nama Showroom
+                                                Nama Showroom *
                                             </label>
                                             <input
                                                 type="text"
@@ -764,17 +768,32 @@ export default function SettingsPage() {
                                             <p className="mt-1 text-xs text-gray-500">Nama showroom akan muncul di kartu profil.</p>
                                         </div>
 
+                                        {/* City */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Kota *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.city}
+                                                onChange={(e) => updateField('city', e.target.value)}
+                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                placeholder="Jakarta Selatan"
+                                            />
+                                            <p className="mt-1 text-xs text-gray-500">Kota lokasi showroom.</p>
+                                        </div>
+
                                         {/* Address */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Alamat Showroom
+                                                Alamat Showroom *
                                             </label>
                                             <textarea
                                                 value={formData.address}
                                                 onChange={(e) => updateField('address', e.target.value)}
                                                 rows={3}
                                                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                                                placeholder="Jl. Sudirman No. 123, Jakarta Selatan"
+                                                placeholder="Jl. Sudirman No. 123, Kebayoran Baru"
                                             />
                                         </div>
                                     </div>

@@ -156,9 +156,24 @@ export async function PUT(req: Request) {
             }
         })
 
+        // If role was changed, invalidate all sessions for this user
+        // This forces them to re-login and get the new role
+        if (updateData.role) {
+            try {
+                // Delete all sessions for this user (NextAuth stores sessions in the database)
+                await prisma.session.deleteMany({
+                    where: { userId: id }
+                })
+            } catch (sessionError) {
+                // Log error but don't fail the update
+                console.error('Failed to invalidate sessions:', sessionError)
+            }
+        }
+
         return NextResponse.json({
             success: true,
-            user
+            user,
+            sessionInvalidated: !!updateData.role
         })
 
     } catch (error: any) {

@@ -51,8 +51,10 @@ export function useCurrentUser() {
         status === 'authenticated' ? '/api/users/me' : null,
         fetcher,
         {
-            revalidateOnFocus: false,
-            dedupingInterval: 60000, // 1 minute
+            revalidateOnFocus: true,
+            revalidateOnReconnect: true,
+            dedupingInterval: 5000, // 5 seconds - reduce cache for faster role updates
+            refreshInterval: 30000, // Refresh every 30 seconds
         }
     )
 

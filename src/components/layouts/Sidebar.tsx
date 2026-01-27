@@ -18,6 +18,7 @@ import {
     History,
     LucideIcon,
     X,
+    Home,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOut } from 'next-auth/react'
@@ -38,6 +39,7 @@ interface SidebarProps {
 }
 
 const buyerMenuItems: MenuItem[] = [
+    { icon: Home, label: 'Home', href: '/' },
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Heart, label: 'Favorit', href: '/dashboard/favorites' },
     { icon: History, label: 'Riwayat', href: '/dashboard/history' },
@@ -45,6 +47,7 @@ const buyerMenuItems: MenuItem[] = [
 ]
 
 const sellerMenuItems: MenuItem[] = [
+    { icon: Home, label: 'Home', href: '/' },
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Car, label: 'Iklan Saya', href: '/dashboard/listings' },
     { icon: Plus, label: 'Pasang Iklan', href: '/dashboard/listings/used' },
@@ -53,6 +56,7 @@ const sellerMenuItems: MenuItem[] = [
 ]
 
 const adminMenuItems: MenuItem[] = [
+    { icon: Home, label: 'Home', href: '/' },
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin' },
     { icon: User, label: 'Pengguna', href: '/admin/users' },
     { icon: Car, label: 'Iklan', href: '/admin/listings' },

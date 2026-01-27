@@ -14,6 +14,8 @@ import {
     Users,
     Shield,
     AlertCircle,
+    X,
+    Loader2,
 } from 'lucide-react'
 import { formatNumber } from '@/lib/utils'
 import { USER_ROLES } from '@/lib/constants'
@@ -36,35 +38,40 @@ export default function AdminUsersPage() {
     const [roleFilter, setRoleFilter] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [selectedUser, setSelectedUser] = useState<string | null>(null)
+    const [isUpdating, setIsUpdating] = useState(false)
+    // Role change dialog state
+    const [roleDialogOpen, setRoleDialogOpen] = useState(false)
+    const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null)
+    const [selectedRole, setSelectedRole] = useState('')
     const itemsPerPage = 10
 
-    useEffect(() => {
-        async function fetchUsers() {
-            try {
-                const res = await fetch('/api/admin/users')
-                if (res.ok) {
-                    const data = await res.json()
-                    setUsers(data.users)
-                }
-            } catch (error) {
-                console.error('Failed to fetch users:', error)
-            } finally {
-                setIsLoading(false)
+    const fetchUsers = async () => {
+        try {
+            const res = await fetch('/api/admin/users')
+            if (res.ok) {
+                const data = await res.json()
+                // Map API data to User interface
+                const mappedUsers = data.users.map((u: any) => ({
+                    id: u.id,
+                    name: u.name,
+                    email: u.email,
+                    phone: u.phone,
+                    role: u.role,
+                    createdAt: u.createdAt,
+                    listingsCount: u._count?.listings || 0,
+                    isDealer: !!u.dealer,
+                }))
+                setUsers(mappedUsers)
             }
+        } catch (error) {
+            console.error('Failed to fetch users:', error)
+        } finally {
+            setIsLoading(false)
         }
+    }
 
-        // Sample data for now
-        setUsers([
-            { id: '1', name: 'Admin CepetDeal', email: 'admin@cepetdeal.com', phone: '081234567890', role: 'ADMIN', createdAt: '2024-01-01', listingsCount: 0, isDealer: false },
-            { id: '2', name: 'Ahmad Dealer', email: 'ahmad@dealer.com', phone: '081234567891', role: 'DEALER', createdAt: '2024-01-15', listingsCount: 25, isDealer: true },
-            { id: '3', name: 'Budi Seller', email: 'budi@email.com', phone: '081234567892', role: 'SELLER', createdAt: '2024-02-01', listingsCount: 5, isDealer: false },
-            { id: '4', name: 'Citra Buyer', email: 'citra@email.com', phone: '081234567893', role: 'BUYER', createdAt: '2024-02-15', listingsCount: 0, isDealer: false },
-            { id: '5', name: 'Dian Seller', email: 'dian@email.com', phone: '081234567894', role: 'SELLER', createdAt: '2024-03-01', listingsCount: 3, isDealer: false },
-            { id: '6', name: 'Eko Buyer', email: 'eko@email.com', phone: null, role: 'BUYER', createdAt: '2024-03-10', listingsCount: 0, isDealer: false },
-            { id: '7', name: 'Fitri Dealer', email: 'fitri@autodealers.com', phone: '081234567896', role: 'DEALER', createdAt: '2024-03-15', listingsCount: 42, isDealer: true },
-            { id: '8', name: 'Gunawan Seller', email: 'gunawan@email.com', phone: '081234567897', role: 'SELLER', createdAt: '2024-04-01', listingsCount: 8, isDealer: false },
-        ])
-        setIsLoading(false)
+    useEffect(() => {
+        fetchUsers()
     }, [])
 
     // Filter users
@@ -98,15 +105,70 @@ export default function AdminUsersPage() {
     }
 
     const handleChangeRole = async (userId: string, newRole: string) => {
-        // TODO: Implement API call
-        console.log('Change role:', userId, newRole)
-        setSelectedUser(null)
+        setIsUpdating(true)
+        try {
+            const res = await fetch('/api/admin/users', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: userId, role: newRole }),
+            })
+
+            if (res.ok) {
+                const result = await res.json()
+
+                // Update local state
+                setUsers(prev => prev.map(u =>
+                    u.id === userId ? { ...u, role: newRole as any } : u
+                ))
+                setSelectedUser(null)
+                setRoleDialogOpen(false)
+                setRoleDialogUser(null)
+
+                // Show success message with session invalidation info
+                const userName = roleDialogUser?.name || 'User'
+                alert(`✅ Role ${userName} berhasil diubah menjadi ${USER_ROLES[newRole as keyof typeof USER_ROLES]}.\n\nUser akan diminta untuk login ulang agar perubahan role berlaku.`)
+            } else {
+                const error = await res.json()
+                alert(error.error || 'Gagal mengubah role')
+            }
+        } catch (error) {
+            console.error('Error changing role:', error)
+            alert('Terjadi kesalahan saat mengubah role')
+        } finally {
+            setIsUpdating(false)
+        }
     }
 
     const handleDeleteUser = async (userId: string) => {
         if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) return
-        // TODO: Implement API call
-        console.log('Delete user:', userId)
+
+        setIsUpdating(true)
+        try {
+            const res = await fetch(`/api/admin/users?id=${userId}`, {
+                method: 'DELETE',
+            })
+
+            if (res.ok) {
+                // Remove from local state
+                setUsers(prev => prev.filter(u => u.id !== userId))
+                setSelectedUser(null)
+            } else {
+                const error = await res.json()
+                alert(error.error || 'Gagal menghapus user')
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error)
+            alert('Terjadi kesalahan saat menghapus user')
+        } finally {
+            setIsUpdating(false)
+        }
+    }
+
+    const openRoleDialog = (user: User) => {
+        setRoleDialogUser(user)
+        setSelectedRole(user.role)
+        setRoleDialogOpen(true)
+        setSelectedUser(null)
     }
 
     return (
@@ -232,7 +294,7 @@ export default function AdminUsersPage() {
                                                     {selectedUser === user.id && (
                                                         <div className="absolute right-0 top-full mt-1 w-48 bg-gray-700 rounded-lg shadow-lg border border-gray-600 py-1 z-10">
                                                             <button
-                                                                onClick={() => handleChangeRole(user.id, 'SELLER')}
+                                                                onClick={() => openRoleDialog(user)}
                                                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
                                                             >
                                                                 <UserCog className="w-4 h-4" />
@@ -240,7 +302,8 @@ export default function AdminUsersPage() {
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteUser(user.id)}
-                                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-600"
+                                                                disabled={isUpdating}
+                                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-gray-600 disabled:opacity-50"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                                 Hapus User
@@ -285,6 +348,92 @@ export default function AdminUsersPage() {
                     </div>
                 )}
             </div>
+
+            {/* Role Change Dialog */}
+            {roleDialogOpen && roleDialogUser && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-white">Ubah Role User</h3>
+                            <button
+                                onClick={() => setRoleDialogOpen(false)}
+                                className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="mb-4 p-3 bg-gray-700/50 rounded-lg">
+                            <p className="text-sm text-gray-300">
+                                <span className="font-medium text-white">{roleDialogUser.name}</span>
+                            </p>
+                            <p className="text-xs text-gray-400">{roleDialogUser.email}</p>
+                        </div>
+
+                        {/* Warning Info */}
+                        <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                            <div className="flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-200">
+                                    Setelah role diubah, user akan <strong>diminta login ulang</strong> agar perubahan berlaku.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Role Baru
+                            </label>
+                            <div className="space-y-2">
+                                {Object.entries(USER_ROLES).map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        onClick={() => setSelectedRole(key)}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-colors ${
+                                            selectedRole === key
+                                                ? 'bg-primary/20 border-primary text-white'
+                                                : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="role"
+                                            checked={selectedRole === key}
+                                            onChange={() => setSelectedRole(key)}
+                                            className="w-4 h-4 text-primary border-gray-500 focus:ring-primary"
+                                        />
+                                        <span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setRoleDialogOpen(false)}
+                                disabled={isUpdating}
+                                className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 font-medium"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={() => selectedRole && handleChangeRole(roleDialogUser.id, selectedRole)}
+                                disabled={isUpdating || !selectedRole || selectedRole === roleDialogUser.role}
+                                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                            >
+                                {isUpdating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Menyimpan...
+                                    </>
+                                ) : (
+                                    'Simpan'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

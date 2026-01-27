@@ -20,6 +20,7 @@ import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { MobileLoginSheet, openLoginSheet } from '@/components/features/MobileLoginSheet'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { USER_ROLES } from '@/lib/constants'
 
 const navLinks = [
     { href: '/mobil-baru', label: 'Mobil Baru' },
@@ -74,13 +75,15 @@ export function Header() {
                             <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
                         ) : session ? (
                             <>
-                                {/* Sell Button */}
-                                <Link href="/dashboard/listings/used">
-                                    <Button size="sm">
-                                        <Plus className="w-4 h-4 mr-1" />
-                                        Jual Mobil
-                                    </Button>
-                                </Link>
+                                {/* Sell Button - Only for SELLER and DEALER, not BUYER */}
+                                {currentUser?.role !== USER_ROLES.BUYER && (
+                                    <Link href="/dashboard/listings/used">
+                                        <Button size="sm">
+                                            <Plus className="w-4 h-4 mr-1" />
+                                            Jual Mobil
+                                        </Button>
+                                    </Link>
+                                )}
 
                                 {/* User Menu */}
                                 <div className="relative">
@@ -204,12 +207,15 @@ export function Header() {
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2 px-4">
                             {session ? (
                                 <>
-                                    <Link href="/dashboard/listings/used" onClick={() => setMobileMenuOpen(false)}>
-                                        <Button className="w-full">
-                                            <Plus className="w-4 h-4 mr-1" />
-                                            Jual Mobil
-                                        </Button>
-                                    </Link>
+                                    {/* Sell Button - Only for SELLER and DEALER, not BUYER */}
+                                    {currentUser?.role !== USER_ROLES.BUYER && (
+                                        <Link href="/dashboard/listings/used" onClick={() => setMobileMenuOpen(false)}>
+                                            <Button className="w-full">
+                                                <Plus className="w-4 h-4 mr-1" />
+                                                Jual Mobil
+                                            </Button>
+                                        </Link>
+                                    )}
                                     <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                                         <Button variant="outline" className="w-full">Dashboard</Button>
                                     </Link>
