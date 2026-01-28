@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         }
 
         // Check if user already exists (shouldn't happen due to checks in submit)
-        const existingUser = await prisma.user.findUnique({
+        const existingUser = await prisma.user.findFirst({
             where: { phone: application.phone }
         })
 

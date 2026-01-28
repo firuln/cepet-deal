@@ -20,6 +20,7 @@ import {
     FileText,
     Flag,
     Star,
+    Quote,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -36,6 +37,7 @@ const menuItems = [
     { icon: Building2, label: 'Kelola Dealer', href: '/admin/dealers' },
     { icon: FileText, label: 'Kelola Artikel', href: '/admin/articles' },
     { icon: Star, label: 'Kelola Review', href: '/admin/reviews/list' },
+    { icon: Quote, label: 'Testimoni', href: '/admin/testimonials' },
     { icon: Flag, label: 'Laporan', href: '/admin/reports/list' },
     { icon: Settings, label: 'Pengaturan', href: '/admin/settings' },
 ]

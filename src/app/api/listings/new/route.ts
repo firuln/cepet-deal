@@ -157,10 +157,7 @@ export async function POST(req: Request) {
                 luggageCapacity: specs?.luggageCapacity,
                 warrantyYears: specs?.warrantyYears,
                 warrantyKm: specs?.warrantyKm,
-                airbags: specs?.airbags,
-                abs: specs?.abs,
-                esp: specs?.esp,
-                tractionControl: specs?.tractionControl,
+                specs: specs || {},
             },
             include: {
                 brand: true,

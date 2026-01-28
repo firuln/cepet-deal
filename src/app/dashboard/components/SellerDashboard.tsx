@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import {
@@ -7,156 +8,336 @@ import {
     Heart,
     MessageSquare,
     Eye,
-    TrendingUp,
-    Clock,
     Plus,
     ArrowUpRight,
+    Clock,
+    TrendingUp,
+    Loader2,
+    AlertCircle,
 } from 'lucide-react'
-import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Badge } from '@/components/ui'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
-// Sample dashboard stats
-const stats = [
-    { label: 'Total Iklan', value: 5, icon: Car, color: 'bg-blue-500' },
-    { label: 'Favorit', value: 12, icon: Heart, color: 'bg-red-500' },
-    { label: 'Pesan Baru', value: 3, icon: MessageSquare, color: 'bg-green-500' },
-    { label: 'Total Views', value: 1234, icon: Eye, color: 'bg-purple-500' },
-]
+// Types
+interface Listing {
+    id: string
+    title: string
+    price: number
+    views: number
+    inquiries: number
+    status: 'ACTIVE' | 'SOLD' | 'PENDING'
+    images: string[]
+    createdAt: string
+}
 
-// Sample recent listings
-const recentListings = [
-    {
-        id: '1',
-        title: 'Toyota Avanza 1.5 G CVT 2023',
-        price: 265000000,
-        views: 156,
-        inquiries: 8,
-        status: 'ACTIVE',
-        image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=200',
-    },
-    {
-        id: '2',
-        title: 'Honda Brio RS CVT 2024',
-        price: 215000000,
-        views: 89,
-        inquiries: 3,
-        status: 'ACTIVE',
-        image: 'https://images.unsplash.com/photo-1568844293986-8c10f13f0969?w=200',
-    },
-    {
-        id: '3',
-        title: 'Daihatsu Xenia 1.3 R MT 2022',
-        price: 195000000,
-        views: 45,
-        inquiries: 2,
-        status: 'PENDING',
-        image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=200',
-    },
-]
+interface Activity {
+    type: 'view' | 'inquiry' | 'favorite' | 'sold'
+    message: string
+    time: string
+}
 
-// Sample recent activities
-const recentActivities = [
-    { type: 'view', message: 'Seseorang melihat iklan Toyota Avanza Anda', time: '5 menit lalu' },
-    { type: 'inquiry', message: 'Pesan baru untuk Honda Brio RS', time: '1 jam lalu' },
-    { type: 'favorite', message: 'Iklan Toyota Avanza ditambahkan ke favorit', time: '2 jam lalu' },
-    { type: 'view', message: '15 orang melihat iklan Anda hari ini', time: '3 jam lalu' },
-]
+interface Stats {
+    totalListings: number
+    soldListings: number
+    newMessages: number
+    totalViews: number
+    recentViews: number
+    recentFavorites: number
+}
+
+interface StatsResponse {
+    stats: Stats
+}
+
+interface ActivitiesResponse {
+    activities: Activity[]
+}
+
+interface ListingsResponse {
+    listings: Listing[]
+}
 
 export function SellerDashboard() {
     const { data: session } = useSession()
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    // Data states
+    const [stats, setStats] = useState<Stats>({
+        totalListings: 0,
+        soldListings: 0,
+        newMessages: 0,
+        totalViews: 0,
+        recentViews: 0,
+        recentFavorites: 0,
+    })
+    const [recentListings, setRecentListings] = useState<Listing[]>([])
+    const [recentActivities, setRecentActivities] = useState<Activity[]>([])
+
+    // Fetch stats
+    const fetchStats = async () => {
+        try {
+            const res = await fetch('/api/dashboard/stats')
+            if (res.ok) {
+                const data: StatsResponse = await res.json()
+                setStats(data.stats)
+            }
+        } catch (err) {
+            console.error('Failed to fetch stats:', err)
+        }
+    }
+
+    // Fetch recent listings
+    const fetchRecentListings = async () => {
+        try {
+            const res = await fetch('/api/listings?limit=5&sort=newest')
+            if (res.ok) {
+                const data: ListingsResponse = await res.json()
+                setRecentListings(data.listings || [])
+            }
+        } catch (err) {
+            console.error('Failed to fetch listings:', err)
+        }
+    }
+
+    // Fetch activities
+    const fetchActivities = async () => {
+        try {
+            const res = await fetch('/api/dashboard/activities?limit=5')
+            if (res.ok) {
+                const data: ActivitiesResponse = await res.json()
+                setRecentActivities(data.activities || [])
+            }
+        } catch (err) {
+            console.error('Failed to fetch activities:', err)
+        }
+    }
+
+    // Initial fetch
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true)
+            setError(null)
+
+            try {
+                await Promise.all([
+                    fetchStats(),
+                    fetchRecentListings(),
+                    fetchActivities()
+                ])
+            } catch (err) {
+                setError('Gagal memuat data. Silakan refresh halaman.')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchData()
+    }, [])
+
+    const formatTimeAgo = (dateString: string) => {
+        const date = new Date(dateString)
+        const now = new Date()
+        const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+        if (seconds < 60) return 'Baru saja'
+        const minutes = Math.floor(seconds / 60)
+        if (minutes < 60) return `${minutes} menit lalu`
+        const hours = Math.floor(minutes / 60)
+        if (hours < 24) return `${hours} jam lalu`
+        const days = Math.floor(hours / 24)
+        return `${days} hari lalu`
+    }
 
     return (
         <>
+            {/* Error State */}
+            {error && (
+                <Card className="mb-6 bg-red-50 border-red-200">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                            <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-secondary">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="flex-1">
+                    <h1 className="text-xl sm:text-2xl font-bold text-secondary">
                         Selamat datang, {session?.user?.name?.split(' ')[0] || 'User'}! 👋
                     </h1>
-                    <p className="text-gray-500 mt-1">
+                    <p className="text-gray-500 mt-1 text-sm sm:text-base">
                         Kelola iklan dan pantau performa Anda
                     </p>
                 </div>
-                <Link href="/dashboard/listings/used">
-                    <Button>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Pasang Iklan Baru
+                <Link href="/dashboard/listings/used" className="shrink-0">
+                    <Button size="sm" className="text-xs sm:text-sm">
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Pasang Iklan</span>
+                        <span className="sm:hidden">Pasang</span>
                     </Button>
                 </Link>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {stats.map((stat) => (
-                    <Card key={stat.label}>
-                        <CardContent className="p-5">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-500">{stat.label}</p>
-                                    <p className="text-2xl font-bold text-secondary mt-1">
-                                        {formatNumber(stat.value)}
+            {/* Stats Grid - Fully Responsive */}
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-3 sm:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm text-gray-500 truncate">Total Iklan</p>
+                                {isLoading ? (
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse rounded mt-1 sm:mt-2" />
+                                ) : (
+                                    <p className="text-xl sm:text-2xl font-bold text-secondary mt-1">
+                                        {stats.totalListings}
                                     </p>
-                                </div>
-                                <div className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center`}>
-                                    <stat.icon className="w-6 h-6 text-white" />
-                                </div>
+                                )}
                             </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <Car className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-3 sm:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm text-gray-500 truncate">Terjual</p>
+                                {isLoading ? (
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse rounded mt-1 sm:mt-2" />
+                                ) : (
+                                    <p className="text-xl sm:text-2xl font-bold text-secondary mt-1">
+                                        {stats.soldListings}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-3 sm:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm text-gray-500 truncate">Pesan Baru</p>
+                                {isLoading ? (
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse rounded mt-1 sm:mt-2" />
+                                ) : (
+                                    <p className="text-xl sm:text-2xl font-bold text-secondary mt-1">
+                                        {stats.newMessages}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-3 sm:p-5">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm text-gray-500 truncate">Total Views</p>
+                                {isLoading ? (
+                                    <div className="h-6 w-12 bg-gray-200 animate-pulse rounded mt-1 sm:mt-2" />
+                                ) : (
+                                    <p className="text-xl sm:text-2xl font-bold text-secondary mt-1">
+                                        {formatNumber(stats.totalViews)}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                                <Eye className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
                 {/* Recent Listings */}
                 <div className="lg:col-span-2">
                     <Card>
                         <CardContent className="p-0">
-                            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-                                <h2 className="font-semibold text-secondary">Iklan Terbaru</h2>
+                            <div className="flex items-center justify-between p-3 sm:p-5 border-b border-gray-100">
+                                <h2 className="font-semibold text-secondary text-sm sm:text-base">Iklan Terbaru</h2>
                                 <Link
                                     href="/dashboard/listings"
-                                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                                    className="text-xs sm:text-sm text-primary hover:underline flex items-center gap-1"
                                 >
-                                    Lihat Semua
-                                    <ArrowUpRight className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Lihat Semua</span>
+                                    <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4" />
                                 </Link>
                             </div>
-                            <div className="divide-y divide-gray-100">
-                                {recentListings.map((listing) => (
-                                    <div key={listing.id} className="p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
-                                        <img
-                                            src={listing.image}
-                                            alt={listing.title}
-                                            className="w-16 h-16 rounded-lg object-cover"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-secondary truncate">
-                                                {listing.title}
-                                            </h3>
-                                            <p className="text-primary font-semibold text-sm mt-0.5">
-                                                {formatCurrency(listing.price)}
-                                            </p>
-                                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                                                <span className="flex items-center gap-1">
-                                                    <Eye className="w-3 h-3" />
-                                                    {listing.views}
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <MessageSquare className="w-3 h-3" />
-                                                    {listing.inquiries}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <Badge
-                                            variant={listing.status === 'ACTIVE' ? 'success' : 'warning'}
-                                            size="sm"
+                            {isLoading ? (
+                                <div className="p-4 space-y-3 sm:space-y-4">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="animate-pulse bg-gray-100 h-20 sm:h-24 rounded-lg" />
+                                    ))}
+                                </div>
+                            ) : recentListings.length === 0 ? (
+                                <div className="p-6 sm:p-8 text-center text-gray-500">
+                                    <Car className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-gray-300" />
+                                    <p className="text-sm sm:text-base">Belum ada iklan</p>
+                                    <Link href="/dashboard/listings/used" className="inline-block mt-3">
+                                        <Button size="sm">
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Pasang Iklan Pertama
+                                        </Button>
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-100">
+                                    {recentListings.map((listing) => (
+                                        <Link
+                                            key={listing.id}
+                                            href={`/dashboard/listings/${listing.id}/edit`}
+                                            className="block"
                                         >
-                                            {listing.status === 'ACTIVE' ? 'Aktif' : 'Pending'}
-                                        </Badge>
-                                    </div>
-                                ))}
-                            </div>
+                                            <div className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-gray-50 transition-colors">
+                                                <img
+                                                    src={listing.images?.[0] || 'https://via.placeholder.com/150?text=No+Image'}
+                                                    alt={listing.title}
+                                                    className="w-full h-32 sm:w-16 sm:h-16 rounded-lg object-cover"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-medium text-secondary text-sm sm:text-base truncate">
+                                                        {listing.title}
+                                                    </h3>
+                                                    <p className="text-primary font-semibold text-sm mt-0.5">
+                                                        {formatCurrency(listing.price)}
+                                                    </p>
+                                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                                        <span className="flex items-center gap-1">
+                                                            <Eye className="w-3 h-3" />
+                                                            {listing.views || 0}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <MessageSquare className="w-3 h-3" />
+                                                            {listing.inquiries || 0}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <Badge
+                                                    variant={listing.status === 'ACTIVE' ? 'success' : listing.status === 'SOLD' ? 'info' : 'warning'}
+                                                    size="sm"
+                                                    className="shrink-0 self-start sm:self-auto"
+                                                >
+                                                    {listing.status === 'ACTIVE' ? 'Aktif' : listing.status === 'SOLD' ? 'Terjual' : 'Pending'}
+                                                </Badge>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -165,67 +346,83 @@ export function SellerDashboard() {
                 <div>
                     <Card>
                         <CardContent className="p-0">
-                            <div className="p-5 border-b border-gray-100">
-                                <h2 className="font-semibold text-secondary">Aktivitas Terbaru</h2>
+                            <div className="p-3 sm:p-5 border-b border-gray-100">
+                                <h2 className="font-semibold text-secondary text-sm sm:text-base">Aktivitas Terbaru</h2>
                             </div>
-                            <div className="divide-y divide-gray-100">
-                                {recentActivities.map((activity, index) => (
-                                    <div key={index} className="p-4 flex items-start gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.type === 'view' ? 'bg-purple-100 text-purple-600' :
-                                                activity.type === 'inquiry' ? 'bg-green-100 text-green-600' :
-                                                    'bg-red-100 text-red-600'
+                            {isLoading ? (
+                                <div className="p-4 space-y-4">
+                                    {[1, 2, 3, 4].map((i) => (
+                                        <div key={i} className="animate-pulse bg-gray-100 h-14 rounded-lg" />
+                                    ))}
+                                </div>
+                            ) : recentActivities.length === 0 ? (
+                                <div className="p-6 sm:p-8 text-center text-gray-500">
+                                    <Clock className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-gray-300" />
+                                    <p className="text-sm sm:text-base">Belum ada aktivitas</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-100 max-h-[350px] sm:max-h-[400px] overflow-y-auto">
+                                    {recentActivities.map((activity, index) => (
+                                        <div key={index} className="p-3 sm:p-4 flex items-start gap-3 hover:bg-gray-50 transition-colors">
+                                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                activity.type === 'sold' ? 'bg-green-100 text-green-600' :
+                                                activity.type === 'inquiry' ? 'bg-orange-100 text-orange-600' :
+                                                activity.type === 'favorite' ? 'bg-red-100 text-red-600' :
+                                                'bg-purple-100 text-purple-600'
                                             }`}>
-                                            {activity.type === 'view' && <Eye className="w-4 h-4" />}
-                                            {activity.type === 'inquiry' && <MessageSquare className="w-4 h-4" />}
-                                            {activity.type === 'favorite' && <Heart className="w-4 h-4" />}
+                                                {activity.type === 'sold' && <TrendingUp className="w-4 h-4" />}
+                                                {activity.type === 'inquiry' && <MessageSquare className="w-4 h-4" />}
+                                                {activity.type === 'favorite' && <Heart className="w-4 h-4" />}
+                                                {activity.type === 'view' && <Eye className="w-4 h-4" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs sm:text-sm text-gray-700">{activity.message}</p>
+                                                <p className="text-[10px] sm:text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {activity.time}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-700">{activity.message}</p>
-                                            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                                                <Clock className="w-3 h-3" />
-                                                {activity.time}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - Fully Responsive */}
             <Card>
-                <CardContent className="p-5">
-                    <h2 className="font-semibold text-secondary mb-4">Aksi Cepat</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <CardContent className="p-3 sm:p-5">
+                    <h2 className="font-semibold text-secondary mb-3 sm:mb-4 text-sm sm:text-base">Aksi Cepat</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
                         <Link
                             href="/dashboard/listings/used"
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors text-center"
+                            className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors text-center"
                         >
-                            <Plus className="w-6 h-6 text-primary" />
-                            <span className="text-sm font-medium text-secondary">Pasang Iklan</span>
+                            <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                            <span className="text-xs sm:text-sm font-medium text-secondary">Pasang Iklan</span>
+                        </Link>
+                        <Link
+                            href="/dashboard/listings"
+                            className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors text-center"
+                        >
+                            <Car className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
+                            <span className="text-xs sm:text-sm font-medium text-secondary">Daftar Iklan</span>
                         </Link>
                         <Link
                             href="/dashboard/favorites"
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-red-50 hover:bg-red-100 transition-colors text-center"
+                            className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl bg-red-50 hover:bg-red-100 transition-colors text-center"
                         >
-                            <Heart className="w-6 h-6 text-red-500" />
-                            <span className="text-sm font-medium text-secondary">Favorit</span>
+                            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-red-500" />
+                            <span className="text-xs sm:text-sm font-medium text-secondary">Favorit</span>
                         </Link>
                         <Link
                             href="/dashboard/messages"
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-green-50 hover:bg-green-100 transition-colors text-center"
+                            className="flex flex-col items-center gap-1.5 sm:gap-2 p-3 sm:p-4 rounded-xl bg-green-50 hover:bg-green-100 transition-colors text-center"
                         >
-                            <MessageSquare className="w-6 h-6 text-green-500" />
-                            <span className="text-sm font-medium text-secondary">Pesan</span>
-                        </Link>
-                        <Link
-                            href="/dashboard/settings"
-                            className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-center"
-                        >
-                            <TrendingUp className="w-6 h-6 text-gray-600" />
-                            <span className="text-sm font-medium text-secondary">Statistik</span>
+                            <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
+                            <span className="text-xs sm:text-sm font-medium text-secondary">Pesan</span>
                         </Link>
                     </div>
                 </CardContent>

@@ -7,6 +7,8 @@ import { signIn } from 'next-auth/react'
 import { UserPlus, Mail, ArrowLeft, CheckCircle, Clock, RefreshCw, Lock, User } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { Input } from '@/components/ui'
+import { TermsCheckbox } from '@/components/forms/TermsCheckbox'
+import { TermsBottomSheet } from '@/app/terms/components/TermsBottomSheet'
 
 const ROLES = [
     {
@@ -68,6 +70,11 @@ function RegisterForm() {
     const [userId, setUserId] = useState<string | null>(null)
     const [registeredUsername, setRegisteredUsername] = useState<string | null>(null)
 
+    // Terms & Conditions
+    const [termsAccepted, setTermsAccepted] = useState(false)
+    const [showTermsBottomSheet, setShowTermsBottomSheet] = useState(false)
+    const [termsError, setTermsError] = useState('')
+
     // Check username availability (debounced)
     useEffect(() => {
         const timer = setTimeout(async () => {
@@ -125,6 +132,17 @@ function RegisterForm() {
         }
     }, [otpData.sent])
 
+    // Listen for custom event to open terms bottom sheet
+    useEffect(() => {
+        const handleOpenTerms = () => setShowTermsBottomSheet(true)
+
+        window.addEventListener('open-terms-bottomsheet', handleOpenTerms)
+
+        return () => {
+            window.removeEventListener('open-terms-bottomsheet', handleOpenTerms)
+        }
+    }, [])
+
     // Format phone input
     const formatPhoneNumber = (value: string) => {
         let cleaned = value.replace(/[^\d]/g, '')
@@ -168,6 +186,12 @@ function RegisterForm() {
 
         if (formData.password !== formData.confirmPassword) {
             setError('Password tidak cocok')
+            return
+        }
+
+        if (!termsAccepted) {
+            setTermsError('Anda harus menyetujui Syarat & Ketentuan')
+            setError('Anda harus menyetujui Syarat & Ketentuan')
             return
         }
 
@@ -550,6 +574,15 @@ function RegisterForm() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* Terms & Conditions */}
+                                <div className="pt-2">
+                                    <TermsCheckbox
+                                        checked={termsAccepted}
+                                        onChange={setTermsAccepted}
+                                        error={termsError}
+                                    />
+                                </div>
                             </div>
 
                             {/* Actions */}
@@ -771,6 +804,12 @@ function RegisterForm() {
                         Kembali ke Beranda
                     </Link>
                 </div>
+
+                {/* Terms Bottom Sheet (Mobile) */}
+                <TermsBottomSheet
+                    isOpen={showTermsBottomSheet}
+                    onClose={() => setShowTermsBottomSheet(false)}
+                />
             </div>
         </div>
     )

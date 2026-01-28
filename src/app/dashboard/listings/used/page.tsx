@@ -24,6 +24,8 @@ import {
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge, LocationDetectorModal } from '@/components/ui'
+import { TermsCheckbox } from '@/components/forms/TermsCheckbox'
+import { TermsBottomSheet } from '@/app/terms/components/TermsBottomSheet'
 import {
     TRANSMISSIONS,
     FUEL_TYPES,
@@ -388,6 +390,9 @@ function NewUsedListingForm() {
     const [showAllYears, setShowAllYears] = useState(false)
     const [showAllFeatures, setShowAllFeatures] = useState(false)
     const [showLocationModal, setShowLocationModal] = useState(false)
+    const [showTermsBottomSheet, setShowTermsBottomSheet] = useState(false)
+    const [termsAccepted, setTermsAccepted] = useState(false)
+    const [termsError, setTermsError] = useState('')
 
     // Form data
     const [formData, setFormData] = useState({
@@ -448,6 +453,14 @@ function NewUsedListingForm() {
             } catch (e) {
                 console.error('Failed to load draft', e)
             }
+        }
+
+        // Listen for custom event to open terms bottom sheet
+        const handleOpenTerms = () => setShowTermsBottomSheet(true)
+        window.addEventListener('open-terms-bottomsheet', handleOpenTerms)
+
+        return () => {
+            window.removeEventListener('open-terms-bottomsheet', handleOpenTerms)
         }
     }, [])
 
@@ -519,6 +532,13 @@ function NewUsedListingForm() {
     const autoTitle = `${formData.brand} ${formData.model} ${formData.variant} ${formData.year}`.trim()
 
     const handleSubmit = async () => {
+        // Check if terms are accepted
+        if (!termsAccepted) {
+            setTermsError('Anda harus menyetujui Syarat & Ketentuan untuk memasang iklan')
+            alert('Anda harus menyetujui Syarat & Ketentuan untuk memasang iklan')
+            return
+        }
+
         setIsSubmitting(true)
         try {
             const payload = {
@@ -1127,6 +1147,21 @@ function NewUsedListingForm() {
                     )}
                 </div>
 
+                {/* Terms & Conditions (only show on step 5 before submitting) */}
+                {currentStep === 5 && (
+                    <div className="container max-w-2xl px-4 pb-4">
+                        <TermsCheckbox
+                            checked={termsAccepted}
+                            onChange={(checked) => {
+                                setTermsAccepted(checked)
+                                setTermsError('')
+                            }}
+                            error={termsError}
+                            label="Saya menyetujui Syarat & Ketentuan dan Aturan Pasang Iklan CepetDeal"
+                        />
+                    </div>
+                )}
+
                 {/* Inline Navigation Buttons */}
                 <div className="container max-w-2xl px-4 py-6">
                     <div className="flex items-center gap-3">
@@ -1155,6 +1190,12 @@ function NewUsedListingForm() {
                 isOpen={showLocationModal}
                 onClose={() => setShowLocationModal(false)}
                 onLocationDetected={handleLocationDetected}
+            />
+
+            {/* Terms Bottom Sheet (Mobile) */}
+            <TermsBottomSheet
+                isOpen={showTermsBottomSheet}
+                onClose={() => setShowTermsBottomSheet(false)}
             />
         </DashboardLayout>
     )

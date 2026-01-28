@@ -66,12 +66,14 @@ export async function GET(req: Request) {
         })
 
         recentMessages.forEach(msg => {
-            activities.push({
-                type: 'inquiry',
-                message: `Pesan baru untuk ${msg.listing.title}`,
-                time: formatTimeAgo(msg.createdAt),
-                createdAt: msg.createdAt
-            })
+            if (msg.listing) {
+                activities.push({
+                    type: 'inquiry',
+                    message: `Pesan baru untuk ${msg.listing.title}`,
+                    time: formatTimeAgo(msg.createdAt),
+                    createdAt: msg.createdAt
+                })
+            }
         })
 
         // 2. Recent favorites
@@ -108,7 +110,7 @@ export async function GET(req: Request) {
                 status: 'SOLD',
                 updatedAt: { gte: startDate }
             },
-            select: { id: true, title: true, updatedAt },
+            select: { id: true, title: true, updatedAt: true },
             orderBy: { updatedAt: 'desc' },
             take: 5
         })
@@ -128,7 +130,7 @@ export async function GET(req: Request) {
                 userId: user.id,
                 createdAt: { gte: startDate }
             },
-            select: { id: true, title: true, createdAt, views: true },
+            select: { id: true, title: true, createdAt: true, views: true },
             orderBy: { createdAt: 'desc' },
             take: 5
         })

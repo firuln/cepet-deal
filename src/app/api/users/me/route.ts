@@ -215,6 +215,13 @@ export async function PUT(req: Request) {
                 )
             }
 
+            if (!user.password) {
+                return NextResponse.json(
+                    { error: 'No password set for this account. Please reset your password.' },
+                    { status: 400 }
+                )
+            }
+
             const isPasswordValid = await bcrypt.compare(currentPassword, user.password)
 
             if (!isPasswordValid) {

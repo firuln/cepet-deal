@@ -44,7 +44,7 @@ export default function DashboardPage() {
             {userRole === 'BUYER' && <BuyerDashboard />}
             {userRole === 'SELLER' && <SellerDashboard />}
             {userRole === 'DEALER' && <DealerDashboard />}
-            {userRole === 'ADMIN' && null} // Will redirect to /admin
+            {userRole === 'ADMIN' && null}
         </DashboardLayout>
     )
 }

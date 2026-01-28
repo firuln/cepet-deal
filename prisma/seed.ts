@@ -168,33 +168,70 @@ async function main() {
     const testimonialsData = [
         {
             name: 'Budi Santoso',
-            role: 'Pembeli Toyota Avanza',
-            content: 'Proses jual beli sangat mudah dan cepat. Mobil sesuai deskripsi dan harga sangat kompetitif. Recommended!',
+            role: 'Pengusaha',
+            content: 'Jual mobil di CepetDeal sangat mudah dan cepat. Mobil saya laku dalam 3 hari dengan harga sesuai harapan!',
             rating: 5,
+            isActive: true
+        },
+        {
+            name: 'Ahmad Rizky',
+            role: 'Buyer',
+            content: 'Mencari mobil bekas yang berkualitas itu susah, tapi di CepetDeal saya dapat Toyota Avanza dengan harga bagus dan kondisi prima.',
+            rating: 5,
+            isActive: true
         },
         {
             name: 'Siti Rahayu',
-            role: 'Penjual Honda CR-V',
-            content: 'Sangat terbantu dengan platform CepetDeal. Mobil saya laku dalam waktu 2 minggu dengan harga yang bagus.',
+            role: 'Ibu Rumah Tangga',
+            content: 'Awalnya ragu beli mobil online, tapi prosesnya transparan dan penjualnya jujur. Recommended banget!',
             rating: 5,
+            isActive: true
         },
         {
-            name: 'Ahmad Fauzi',
-            role: 'Dealer Premium',
-            content: 'Sebagai dealer, CepetDeal membantu kami menjangkau lebih banyak pembeli. Fitur-fiturnya sangat memudahkan.',
+            name: 'Hendra Wijaya',
+            role: 'Dealer Mobil',
+            content: 'Sebagai dealer, CepetDeal membantu saya menjangkau lebih banyak pembeli. Fitur premium placement sangat membantu meningkatkan penjualan.',
             rating: 5,
+            isActive: true
         },
         {
-            name: 'Diana Putri',
-            role: 'Pembeli Mitsubishi Xpander',
-            content: 'Senang sekali bisa menemukan mobil impian dengan budget yang pas. Terima kasih CepetDeal!',
+            name: 'Dewi Lestari',
+            role: 'Karyawan Swasta',
+            content: 'Punya budget terbatas tapi butuh mobil untuk kerja. Di CepetDeal saya dapat Daihatsu Ayla dengan harga masuk akal.',
             rating: 4,
+            isActive: true
         },
+        {
+            name: 'Rudi Hermawan',
+            role: 'Wiraswasta',
+            content: 'Proses jual beli yang aman dan transparan. CS juga sangat responsif saat ada kendala. Terima kasih CepetDeal!',
+            rating: 5,
+            isActive: true
+        },
+        {
+            name: 'Maya Sari',
+            role: 'Buyer',
+            content: 'Sudah lama cari mobil bekas yang bagus, akhirnya ketemu di CepetDeal. Kondisinya sesuai iklan, penjualnya juga ramah.',
+            rating: 5,
+            isActive: true
+        },
+        {
+            name: 'Agus Pratama',
+            role: 'Penjual Mobil',
+            content: 'Platform jual mobil terbaik yang pernah saya coba. Fitur-fiturnya lengkap dan user friendly.',
+            rating: 5,
+            isActive: true
+        }
     ]
 
     for (const testimonial of testimonialsData) {
-        await prisma.testimonial.create({
-            data: testimonial,
+        await prisma.testimonial.upsert({
+            where: { id: `seed-${testimonial.name.toLowerCase().replace(/\s+/g, '-')}` },
+            update: testimonial,
+            create: {
+                id: `seed-${testimonial.name.toLowerCase().replace(/\s+/g, '-')}`,
+                ...testimonial
+            }
         })
     }
     console.log('✅ Testimonials seeded')

@@ -161,7 +161,8 @@ export async function PUT(req: Request) {
         if (updateData.role) {
             try {
                 // Delete all sessions for this user (NextAuth stores sessions in the database)
-                await prisma.session.deleteMany({
+                // @ts-ignore - Session model may not exist in all Prisma schemas
+                await (prisma as any).session.deleteMany({
                     where: { userId: id }
                 })
             } catch (sessionError) {

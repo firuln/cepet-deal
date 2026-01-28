@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Car, Users, Shield, ChevronRight, Star, MapPin, Heart, TrendingUp, Clock, DollarSign, Flame, Sparkles, Zap, Newspaper } from 'lucide-react'
+import { Search, Car, Users, Shield, ChevronRight, Star, MapPin, Heart, TrendingUp, Clock, DollarSign, Flame, Sparkles, Zap, Newspaper, Quote } from 'lucide-react'
 import { Button, LocationDetectorModal } from '@/components/ui'
 import { useLocationDetector } from '@/hooks/useLocationDetector'
 
@@ -720,6 +720,243 @@ function UsedCarsContainer() {
   )
 }
 
+// Testimonials Section
+function TestimonialsSection() {
+  const [testimonials, setTestimonials] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchTestimonials() {
+      try {
+        const res = await fetch('/api/testimonials?isActive=true&limit=6')
+        if (res.ok) {
+          const data = await res.json()
+          setTestimonials(data.testimonials || [])
+        }
+      } catch (error) {
+        console.error('Error fetching testimonials:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchTestimonials()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <section className="py-16 animate-fade-in">
+        <div className="container">
+          <div className="text-center mb-10">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <Quote className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold text-secondary">Apa Kata Mereka?</h2>
+            <p className="text-gray-500 mt-2">Testimoni dari pelanggan CepetDeal</p>
+          </div>
+          {/* Loading Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-xl p-6 border border-gray-200">
+                <div className="flex gap-1 mb-4">
+                  {[1, 2, 3, 4, 5].map(() => (
+                    <div key={crypto.randomUUID()} className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
+                  ))}
+                </div>
+                <div className="space-y-2 mb-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse" />
+                  <div className="space-y-1">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse w-24" />
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-20" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (testimonials.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="py-16 bg-gradient-to-b from-gray-50 to-white animate-fade-in">
+      <div className="container">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <Quote className="w-6 h-6 text-yellow-600" />
+            </div>
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-secondary mb-3">Apa Kata Mereka?</h2>
+          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+            Testimoni nyata dari pelanggan yang telah menggunakan CepetDeal
+          </p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="flex">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className="w-5 h-5 text-yellow-400 fill-current"
+                />
+              ))}
+            </div>
+            <span className="text-gray-600 font-medium">4.9/5 dari 2,500+ ulasan</span>
+          </div>
+        </div>
+
+        {/* Testimonials Grid - Desktop Only */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          {testimonials.map((testimonial, index) => (
+            <div
+              key={testimonial.id}
+              className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg hover:border-yellow-300 transition-all duration-300"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              {/* Rating Stars */}
+              <div className="flex gap-1 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`w-5 h-5 ${
+                      star <= testimonial.rating
+                        ? 'text-yellow-400 fill-current'
+                        : 'text-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Content */}
+              <p className="text-gray-600 mb-6 line-clamp-4 leading-relaxed">
+                "{testimonial.content}"
+              </p>
+
+              {/* Author */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-white font-bold text-lg">
+                  {testimonial.avatar ? (
+                    <img
+                      src={testimonial.avatar}
+                      alt={testimonial.name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>{testimonial.name.charAt(0)}</span>
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-secondary">
+                    {testimonial.name}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {testimonial.role || 'Pelanggan CepetDeal'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile: Horizontal Continuous Slider */}
+        <div className="md:hidden relative h-[420px] overflow-hidden">
+          <div
+            className="flex"
+            style={{
+              width: `${testimonials.length * 85 * 3}%`,
+              animation: `scrollLeft ${testimonials.length * 5}s linear infinite`,
+            }}
+          >
+            {/* Duplicate testimonials 3x for smooth loop */}
+            {[
+              ...testimonials,
+              ...testimonials,
+              ...testimonials,
+            ].map((testimonial, index) => (
+              <div
+                key={`${testimonial.id}-${index}`}
+                className="w-[85vw] flex-shrink-0 h-[200px] px-2"
+              >
+                <div className="h-full bg-white rounded-xl p-5 border border-gray-200 shadow-sm flex flex-col">
+                  {/* Rating Stars */}
+                  <div className="flex gap-0.5 mb-3">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${
+                          star <= testimonial.rating
+                            ? 'text-yellow-400 fill-current'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Content */}
+                  <p className="text-gray-600 text-ms mb-3 line-clamp-4 leading-relaxed flex-1">
+                    "{testimonial.content}"
+                  </p>
+
+                  {/* Author */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-orange-500 flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
+                      {testimonial.avatar ? (
+                        <img
+                          src={testimonial.avatar}
+                          alt={testimonial.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span>{testimonial.name.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-secondary text-sm truncate">
+                        {testimonial.name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {testimonial.role || 'Pelanggan CepetDeal'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-12 text-center">
+          <p className="text-gray-500 mb-4">Bergabung dengan ribuan pelanggan puas lainnya</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/register">
+              <Button className="bg-primary hover:bg-primary/90 text-white">
+                <Users className="w-4 h-4 mr-2" />
+                Daftar Sekarang
+              </Button>
+            </Link>
+            <Link href="/dashboard/listings/used">
+              <Button variant="outline" className="hover:bg-primary hover:text-white hover:border-primary transition-all">
+                <Car className="w-4 h-4 mr-2" />
+                Jual Mobil
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // Articles Section
 function ArticlesContainer() {
   const [articles, setArticles] = useState<any[]>([])
@@ -968,6 +1205,7 @@ export default function HomePage() {
       <StatsSection />
       <NewCarsContainer />
       <UsedCarsContainer />
+      <TestimonialsSection />
       <ArticlesContainer />
       <BrowseByBrand />
       <CTASection />

@@ -38,7 +38,10 @@
       "Bash(node:*)",
       "Bash(npx -y @upstash/context7-mcp --api-key ctx7sk-2286bf28-285e-45cd-bf7b-100e35507a58:*)",
       "Bash(npx context7 --help:*)",
-      "Bash(npx context7 search:*)"
+      "Bash(npx context7 search:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm install:*)",
+      "Bash([:*)"
     ]
   }
 }

@@ -11,8 +11,8 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
             <div
                 ref={ref}
                 className={cn(
-                    'bg-white rounded-xl border border-gray-200',
-                    hover && 'transition-all duration-300 hover:shadow-lg hover:-translate-y-1',
+                    'bg-gray-800 rounded-xl border border-gray-700',
+                    hover && 'transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-gray-600',
                     className
                 )}
                 {...props}
@@ -74,7 +74,7 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
         return (
             <div
                 ref={ref}
-                className={cn('px-4 pb-4 pt-2 border-t border-gray-100', className)}
+                className={cn('px-4 pb-4 pt-2 border-t border-gray-700', className)}
                 {...props}
             />
         )

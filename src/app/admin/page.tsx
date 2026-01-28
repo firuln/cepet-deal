@@ -36,6 +36,18 @@ interface RecentActivity {
     time: string
 }
 
+function getTimeAgo(date: Date | string): string {
+    const now = new Date()
+    const past = new Date(date)
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000)
+
+    if (diffInSeconds < 60) return 'Baru saja'
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} menit lalu`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} jam lalu`
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} hari lalu`
+    return past.toLocaleDateString('id-ID')
+}
+
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<Stats>({
         totalUsers: 0,
@@ -58,8 +70,30 @@ export default function AdminDashboardPage() {
                 const res = await fetch('/api/admin/stats')
                 if (res.ok) {
                     const data = await res.json()
-                    setStats(data.stats)
-                    setRecentActivities(data.recentActivities || [])
+
+                    // Map overview data from API to stats state
+                    setStats({
+                        totalUsers: data.overview.totalUsers,
+                        totalListings: data.overview.totalListings,
+                        totalDealers: data.overview.totalDealers,
+                        pendingListings: data.overview.pendingListings,
+                        pendingDealers: data.overview.pendingDealers,
+                        activeListings: data.overview.activeListings,
+                        totalViews: 0, // API doesn't provide this yet
+                        totalMessages: 0, // API doesn't provide this yet
+                        usersThisMonth: data.overview.todayUsers,
+                        listingsThisMonth: data.overview.todayListings,
+                    })
+
+                    // Map recent activities from API
+                    setRecentActivities(
+                        data.recentActivities.slice(0, 5).map((activity: any) => ({
+                            id: activity.id,
+                            type: 'listing_created' as const,
+                            description: `Iklan ${activity.status === 'PENDING' ? 'baru' : activity.status === 'ACTIVE' ? 'aktif' : 'terjual'}: ${activity.brand} - ${activity.title}`,
+                            time: getTimeAgo(activity.createdAt),
+                        }))
+                    )
                 }
             } catch (error) {
                 console.error('Failed to fetch stats:', error)
@@ -68,27 +102,7 @@ export default function AdminDashboardPage() {
             }
         }
 
-        // For now, use sample data
-        setStats({
-            totalUsers: 1245,
-            totalListings: 3842,
-            totalDealers: 89,
-            pendingListings: 24,
-            pendingDealers: 5,
-            activeListings: 3256,
-            totalViews: 125840,
-            totalMessages: 4521,
-            usersThisMonth: 156,
-            listingsThisMonth: 342,
-        })
-        setRecentActivities([
-            { id: '1', type: 'user_register', description: 'User baru: Ahmad Fadli mendaftar', time: '5 menit lalu' },
-            { id: '2', type: 'listing_created', description: 'Iklan baru: Toyota Avanza 2024', time: '15 menit lalu' },
-            { id: '3', type: 'listing_approved', description: 'Iklan disetujui: Honda HR-V 2023', time: '30 menit lalu' },
-            { id: '4', type: 'dealer_verified', description: 'Dealer terverifikasi: Auto Prima Motor', time: '1 jam lalu' },
-            { id: '5', type: 'listing_created', description: 'Iklan baru: Mitsubishi Xpander 2023', time: '2 jam lalu' },
-        ])
-        setIsLoading(false)
+        fetchStats()
     }, [])
 
     const statCards = [
@@ -150,7 +164,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {statCards.map((stat, index) => (
                     <div
                         key={index}

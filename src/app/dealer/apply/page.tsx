@@ -619,6 +619,7 @@ export default function DealerApplyPage() {
                             </p>
                         </div>
                     </div>
+                </div>
                 )}
 
                 {/* Step 2: OTP Verification */}
@@ -725,6 +726,7 @@ export default function DealerApplyPage() {
                             Kembali
                         </button>
                     </div>
+                </div>
                 )}
 
                 {/* Step 3: Success */}

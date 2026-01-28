@@ -10,6 +10,10 @@ export const SITE_NAME = 'CepetDeal'
 export const SITE_DESCRIPTION = 'Marketplace Mobil Baru & Bekas Terpercaya di Indonesia'
 export const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+// Terms & Privacy
+export const TERMS_UPDATED_DATE = '27 Januari 2026'
+export const PRIVACY_UPDATED_DATE = '27 Januari 2026'
+
 // Car Constants
 export const CAR_CONDITIONS = {
     NEW: 'Baru',

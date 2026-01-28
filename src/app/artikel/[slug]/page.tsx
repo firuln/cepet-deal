@@ -285,7 +285,7 @@ export default function ArticleDetailPage() {
             </div>
 
             {/* Article Content */}
-            <div className="prose prose-lg max-w-none mb-8">
+            <div className="ProseMirror prose prose-lg max-w-none mb-8">
                 {article.excerpt && (
                     <p className="text-xl text-gray-700 leading-relaxed mb-6">
                         {article.excerpt}

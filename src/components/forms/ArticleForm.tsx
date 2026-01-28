@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Save, Eye, Upload } from 'lucide-react'
+import { X, Save, Eye, Upload, Wand2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
+import { ArticleEditor } from '@/components/editor'
+import { AiGeneratePanel } from './AiGeneratePanel'
 
 const articleSchema = z.object({
     title: z.string().min(1, 'Judul wajib diisi'),
@@ -55,6 +57,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [previewMode, setPreviewMode] = useState(false)
     const [imagePreview, setImagePreview] = useState(article?.featuredImage || '')
+    const [showAiPanel, setShowAiPanel] = useState(false)
 
     const {
         register,
@@ -186,11 +189,43 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
         )
     }
 
+    const handleAiGenerated = (data: {
+        title: string
+        excerpt: string
+        content: string
+        metaTitle: string
+        metaDescription: string
+    }) => {
+        setValue('title', data.title)
+        setValue('excerpt', data.excerpt)
+        setValue('content', data.content)
+        setValue('metaTitle', data.metaTitle)
+        setValue('metaDescription', data.metaDescription)
+        setShowAiPanel(false)
+    }
+
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* AI Panel */}
+            {showAiPanel && (
+                <AiGeneratePanel
+                    onGenerated={handleAiGenerated}
+                    onCancel={() => setShowAiPanel(false)}
+                    defaultTitle={watch('title')}
+                />
+            )}
+
             {/* Header Actions */}
             <div className="flex items-center justify-between">
                 <div className="flex gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setShowAiPanel(true)}
+                    >
+                        <Wand2 className="w-4 h-4 mr-2" />
+                        Generate with AI
+                    </Button>
                     <Button
                         type="button"
                         variant="ghost"
@@ -272,20 +307,38 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
 
                     {/* Content Editor */}
                     <Card>
-                        <CardContent className="p-6">
+                        <CardContent className="p-0">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Konten Artikel * <span className="text-gray-500">(HTML supported)</span>
-                                </label>
-                                <textarea
-                                    {...register('content')}
-                                    placeholder="Tulis konten artikel di sini. Anda bisa menggunakan tag HTML seperti &lt;p&gt;, &lt;h2&gt;, &lt;ul&gt;, dll..."
-                                    rows={20}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none font-mono text-sm"
-                                />
-                                {errors.content && (
-                                    <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>
-                                )}
+                                <div className="flex items-center justify-between p-6 pb-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                                            Konten Artikel *
+                                        </label>
+                                        <p className="text-xs text-gray-500">
+                                            Gunakan toolbar untuk formatting. Supports headings, bold, italic, links, images, lists, dan lainnya.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setShowAiPanel(true)}
+                                        className="flex-shrink-0"
+                                    >
+                                        <Wand2 className="w-4 h-4 mr-2" />
+                                        Generate with AI
+                                    </Button>
+                                </div>
+                                <div className="px-6 pb-6">
+                                    <ArticleEditor
+                                        content={watch('content')}
+                                        onChange={(html) => setValue('content', html)}
+                                        placeholder="Mulai menulis artikel Anda... Gunakan heading, bold, italic, atau tambahkan gambar dan link."
+                                    />
+                                    {errors.content && (
+                                        <p className="text-red-500 text-sm mt-2">{errors.content.message}</p>
+                                    )}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

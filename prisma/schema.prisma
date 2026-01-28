@@ -242,6 +242,17 @@ model SiteSetting {
   updatedAt DateTime @updatedAt
 }
 
+model AppSettings {
+  id              String   @id @default(cuid())
+  aiProvider      String   @default("zhipu") // "zhipu" | "gemini"
+  zhipuApiKey     String?  @db.Text
+  zhipuModel      String   @default("glm-4-flash")
+  geminiApiKey    String?  @db.Text
+  geminiModel     String   @default("gemini-1.5-flash-002")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 model Article {
   id              String          @id @default(cuid())
   title           String
