@@ -60,9 +60,16 @@ export async function GET(req: Request) {
         })
 
         // Get new messages count
+        // First get user's listing IDs
+        const userListings = await prisma.listing.findMany({
+            where: { userId: user.id },
+            select: { id: true }
+        })
+        const listingIds = userListings.map(l => l.id)
+
         const newMessages = await prisma.message.count({
             where: {
-                listing: { userId: user.id },
+                listingId: { in: listingIds },
                 senderId: { not: user.id },
                 readAt: null
             }
@@ -72,14 +79,14 @@ export async function GET(req: Request) {
         // @ts-ignore - ListingView model may not exist in all Prisma schemas
         const recentViews = await (prisma as any).listingView.count({
             where: {
-                listing: { userId: user.id },
+                listingId: { in: listingIds },
                 createdAt: { gte: startDate }
             }
         })
 
         const recentFavorites = await prisma.favorite.count({
             where: {
-                listing: { userId: user.id },
+                listingId: { in: listingIds },
                 createdAt: { gte: startDate }
             }
         })

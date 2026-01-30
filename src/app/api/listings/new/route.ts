@@ -141,6 +141,7 @@ export async function POST(req: Request) {
                 brandId: brandRecord.id,
                 modelId: modelRecord.id,
                 // Technical Specifications
+                engineSize: specs?.engineSize,
                 enginePower: specs?.enginePower,
                 engineTorque: specs?.engineTorque,
                 cylinders: specs?.cylinders,

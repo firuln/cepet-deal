@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Car, Users, Shield, ChevronRight, Star, MapPin, Heart, TrendingUp, Clock, DollarSign, Flame, Sparkles, Zap, Newspaper, Quote } from 'lucide-react'
-import { Button, LocationDetectorModal } from '@/components/ui'
+import { Button, LocationDetectorModal, SkipLink } from '@/components/ui'
 import { useLocationDetector } from '@/hooks/useLocationDetector'
+import type { Listing, FilterSortOption } from '@/types/listing'
+import { formatPrice, formatShortDate, calculateReadTime, formatMileage } from '@/lib/formatters'
 
 // Hero Section
 function HeroSection({
@@ -134,10 +136,11 @@ function StatsSection() {
 // New Cars Container
 function NewCarsContainer() {
   const router = useRouter()
-  const [listings, setListings] = useState<any[]>([])
+  const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'price_asc' | 'price_desc' | 'newest'>('all')
+  const [filter, setFilter] = useState<FilterSortOption>('all')
   const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
+  const favoritesCheckRef = useRef(false)
 
   useEffect(() => {
     async function fetchListings() {
@@ -156,27 +159,21 @@ function NewCarsContainer() {
     fetchListings()
   }, [])
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(price)
-  }
+  // Filter and sort listings with useMemo
+  const filteredListings = useMemo(() => {
+    return [...listings].sort((a, b) => {
+      if (filter === 'price_asc') return a.price - b.price
+      if (filter === 'price_desc') return b.price - a.price
+      if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      return 0
+    })
+  }, [listings, filter])
 
-  // Filter and sort listings
-  const filteredListings = [...listings].sort((a, b) => {
-    if (filter === 'price_asc') return a.price - b.price
-    if (filter === 'price_desc') return b.price - a.price
-    if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    return 0
-  })
-
-  // Check favorite status for all listings
+  // Check favorite status for all listings - only run once
   useEffect(() => {
-    const checkFavorites = async () => {
-      if (listings.length === 0) return
+    if (favoritesCheckRef.current || listings.length === 0) return
 
+    const checkFavorites = async () => {
       try {
         const promises = listings.map(async (listing) => {
           const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
@@ -190,6 +187,7 @@ function NewCarsContainer() {
         const results = await Promise.all(promises)
         const favIds = new Set(results.filter((r) => r.favorited).map((r) => r.id))
         setFavoritedIds(favIds)
+        favoritesCheckRef.current = true
       } catch (err) {
         console.error('Error checking favorites:', err)
       }
@@ -198,9 +196,21 @@ function NewCarsContainer() {
     checkFavorites()
   }, [listings])
 
-  const handleFavoriteClick = async (e: React.MouseEvent, listingId: string) => {
+  // Memoize favorite click handler with optimistic update
+  const handleFavoriteClick = useCallback(async (e: React.MouseEvent, listingId: string) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // Optimistic update
+    setFavoritedIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(listingId)) {
+        newSet.delete(listingId)
+      } else {
+        newSet.add(listingId)
+      }
+      return newSet
+    })
 
     try {
       const res = await fetch('/api/favorites/toggle', {
@@ -211,11 +221,22 @@ function NewCarsContainer() {
 
       if (res.status === 401) {
         router.push('/login')
+        // Revert optimistic update on redirect
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (newSet.has(listingId)) {
+            newSet.delete(listingId)
+          } else {
+            newSet.add(listingId)
+          }
+          return newSet
+        })
         return
       }
 
       if (res.ok) {
         const data = await res.json()
+        // Sync with actual server response
         setFavoritedIds((prev) => {
           const newSet = new Set(prev)
           if (data.favorited) {
@@ -225,11 +246,32 @@ function NewCarsContainer() {
           }
           return newSet
         })
+      } else {
+        // Revert optimistic update on error
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (newSet.has(listingId)) {
+            newSet.delete(listingId)
+          } else {
+            newSet.add(listingId)
+          }
+          return newSet
+        })
       }
     } catch (err) {
       console.error('Error toggling favorite:', err)
+      // Revert optimistic update on error
+      setFavoritedIds((prev) => {
+        const newSet = new Set(prev)
+        if (newSet.has(listingId)) {
+          newSet.delete(listingId)
+        } else {
+          newSet.add(listingId)
+        }
+        return newSet
+      })
     }
-  }
+  }, [router])
 
   if (isLoading) {
     return (
@@ -429,10 +471,11 @@ function NewCarsContainer() {
 // Used Cars Container
 function UsedCarsContainer() {
   const router = useRouter()
-  const [listings, setListings] = useState<any[]>([])
+  const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'price_asc' | 'price_desc' | 'newest'>('all')
+  const [filter, setFilter] = useState<FilterSortOption>('all')
   const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
+  const favoritesCheckRef = useRef(false)
 
   useEffect(() => {
     async function fetchListings() {
@@ -451,27 +494,21 @@ function UsedCarsContainer() {
     fetchListings()
   }, [])
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(price)
-  }
+  // Filter and sort listings with useMemo
+  const filteredListings = useMemo(() => {
+    return [...listings].sort((a, b) => {
+      if (filter === 'price_asc') return a.price - b.price
+      if (filter === 'price_desc') return b.price - a.price
+      if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      return 0
+    })
+  }, [listings, filter])
 
-  // Filter and sort listings
-  const filteredListings = [...listings].sort((a, b) => {
-    if (filter === 'price_asc') return a.price - b.price
-    if (filter === 'price_desc') return b.price - a.price
-    if (filter === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    return 0
-  })
-
-  // Check favorite status for all listings
+  // Check favorite status for all listings - only run once
   useEffect(() => {
-    const checkFavorites = async () => {
-      if (listings.length === 0) return
+    if (favoritesCheckRef.current || listings.length === 0) return
 
+    const checkFavorites = async () => {
       try {
         const promises = listings.map(async (listing) => {
           const res = await fetch(`/api/favorites/toggle?listingId=${listing.id}`)
@@ -485,6 +522,7 @@ function UsedCarsContainer() {
         const results = await Promise.all(promises)
         const favIds = new Set(results.filter((r) => r.favorited).map((r) => r.id))
         setFavoritedIds(favIds)
+        favoritesCheckRef.current = true
       } catch (err) {
         console.error('Error checking favorites:', err)
       }
@@ -493,9 +531,21 @@ function UsedCarsContainer() {
     checkFavorites()
   }, [listings])
 
-  const handleFavoriteClick = async (e: React.MouseEvent, listingId: string) => {
+  // Memoize favorite click handler with optimistic update
+  const handleFavoriteClick = useCallback(async (e: React.MouseEvent, listingId: string) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // Optimistic update
+    setFavoritedIds((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(listingId)) {
+        newSet.delete(listingId)
+      } else {
+        newSet.add(listingId)
+      }
+      return newSet
+    })
 
     try {
       const res = await fetch('/api/favorites/toggle', {
@@ -506,11 +556,22 @@ function UsedCarsContainer() {
 
       if (res.status === 401) {
         router.push('/login')
+        // Revert optimistic update on redirect
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (newSet.has(listingId)) {
+            newSet.delete(listingId)
+          } else {
+            newSet.add(listingId)
+          }
+          return newSet
+        })
         return
       }
 
       if (res.ok) {
         const data = await res.json()
+        // Sync with actual server response
         setFavoritedIds((prev) => {
           const newSet = new Set(prev)
           if (data.favorited) {
@@ -520,11 +581,32 @@ function UsedCarsContainer() {
           }
           return newSet
         })
+      } else {
+        // Revert optimistic update on error
+        setFavoritedIds((prev) => {
+          const newSet = new Set(prev)
+          if (newSet.has(listingId)) {
+            newSet.delete(listingId)
+          } else {
+            newSet.add(listingId)
+          }
+          return newSet
+        })
       }
     } catch (err) {
       console.error('Error toggling favorite:', err)
+      // Revert optimistic update on error
+      setFavoritedIds((prev) => {
+        const newSet = new Set(prev)
+        if (newSet.has(listingId)) {
+          newSet.delete(listingId)
+        } else {
+          newSet.add(listingId)
+        }
+        return newSet
+      })
     }
-  }
+  }, [router])
 
   if (isLoading) {
     return (
@@ -724,6 +806,7 @@ function UsedCarsContainer() {
 function TestimonialsSection() {
   const [testimonials, setTestimonials] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isPaused, setIsPaused] = useState(false)
 
   useEffect(() => {
     async function fetchTestimonials() {
@@ -867,13 +950,20 @@ function TestimonialsSection() {
           ))}
         </div>
 
-        {/* Mobile: Horizontal Continuous Slider */}
-        <div className="md:hidden relative h-[420px] overflow-hidden">
+        {/* Mobile: Horizontal Continuous Slider with pause on hover */}
+        <div
+          className="md:hidden relative h-[420px] overflow-hidden"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
+        >
           <div
             className="flex"
             style={{
               width: `${testimonials.length * 85 * 3}%`,
               animation: `scrollLeft ${testimonials.length * 5}s linear infinite`,
+              animationPlayState: isPaused ? 'paused' : 'running',
             }}
           >
             {/* Duplicate testimonials 3x for smooth loop */}
@@ -979,18 +1069,6 @@ function ArticlesContainer() {
     fetchArticles()
   }, [])
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-  }
-
-  const getReadTime = (content: string) => {
-    const wordsPerMinute = 200
-    const wordCount = content?.split(/\s+/).length || 0
-    const minutes = Math.ceil(wordCount / wordsPerMinute)
-    return `${minutes} min baca`
-  }
-
   if (isLoading) {
     return (
       <section className="py-16 animate-fade-in">
@@ -1082,9 +1160,9 @@ function ArticlesContainer() {
                     {article.title}
                   </h3>
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                    <span>{formatDate(article.publishedAt || article.createdAt)}</span>
+                    <span>{formatShortDate(article.publishedAt || article.createdAt)}</span>
                     <span>•</span>
-                    <span>{getReadTime(article.excerpt || article.content || '')}</span>
+                    <span>{article.readTime ? `${article.readTime} min baca` : calculateReadTime(article.excerpt || article.content || '')}</span>
                   </div>
                 </div>
 
@@ -1197,6 +1275,8 @@ export default function HomePage() {
 
   return (
     <main>
+      <SkipLink />
+      <div id="main-content">
       <HeroSection
         location={location}
         onChangeLocation={changeLocation}
@@ -1216,6 +1296,7 @@ export default function HomePage() {
         onClose={handleModalClose}
         onLocationDetected={handleLocationDetected}
       />
+      </div>
     </main>
   )
 }

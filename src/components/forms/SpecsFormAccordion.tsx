@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 
 export interface SpecsFormData {
     // Engine & Performance
+    engineSize?: number
     enginePower?: number
     engineTorque?: number
     cylinders?: number
@@ -61,6 +62,14 @@ const SPEC_SECTIONS = [
         color: 'text-blue-600',
         bgColor: 'bg-blue-50',
         fields: [
+            {
+                name: 'engineSize',
+                label: 'Kapasitas Mesin',
+                placeholder: 'Contoh: 1498',
+                suffix: 'cc',
+                type: 'number',
+                halfWidth: true,
+            },
             {
                 name: 'enginePower',
                 label: 'Daya Maksimum',

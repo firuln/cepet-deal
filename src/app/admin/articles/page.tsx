@@ -159,7 +159,7 @@ export default function AdminArticlesPage() {
             </div>
 
             {/* Filters */}
-            <Card className="mb-6">
+            <Card variant="dark" className="mb-6">
                 <CardContent className="p-4">
                     <div className="flex flex-col gap-4">
                         {/* Search */}
@@ -217,7 +217,7 @@ export default function AdminArticlesPage() {
             </Card>
 
             {/* Articles List */}
-            <Card>
+            <Card variant="dark">
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-400">

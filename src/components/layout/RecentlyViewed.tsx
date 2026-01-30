@@ -10,7 +10,6 @@ interface RecentlyViewedItem {
   title: string
   slug: string
   price: number
-  image: string
   year: number
   condition: 'NEW' | 'USED'
   viewedAt: string
@@ -76,7 +75,6 @@ export function RecentlyViewed({ currentListingId, currentListingSlug }: Recentl
             title: data.title,
             slug: data.slug,
             price: Number(data.price),
-            image: data.images?.[0] || '/placeholder-car.png',
             year: data.year,
             condition: data.condition,
             viewedAt: new Date().toISOString(),
@@ -113,7 +111,20 @@ export function RecentlyViewed({ currentListingId, currentListingSlug }: Recentl
       // Update state
       setItems(currentItems.filter((i) => i.id !== currentListingId))
     } catch (error) {
-      console.error('Error adding to recently viewed:', error)
+      // Handle QuotaExceededError by clearing old data
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.warn('localStorage quota exceeded, clearing old data...')
+        localStorage.removeItem(STORAGE_KEY)
+        // Try again with just the current item
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([item]))
+          setItems([item as RecentlyViewedItem].filter((i) => i.id !== currentListingId))
+        } catch (retryError) {
+          console.error('Still cannot save to localStorage:', retryError)
+        }
+      } else {
+        console.error('Error adding to recently viewed:', error)
+      }
     }
   }
 
@@ -191,12 +202,8 @@ export function RecentlyViewed({ currentListingId, currentListingSlug }: Recentl
                 <X className="w-3 h-3" />
               </button>
 
-              <div className="relative w-16 h-12 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-16 h-12 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                <Car className="w-6 h-6 text-gray-400" />
               </div>
 
               <div className="flex-1 min-w-0">

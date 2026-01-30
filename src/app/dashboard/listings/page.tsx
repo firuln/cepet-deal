@@ -17,9 +17,11 @@ import {
     XCircle,
     DollarSign,
     Ban,
+    FileText,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layouts'
-import { Button, Card, CardContent, Badge, Modal, Dropdown } from '@/components/ui'
+import { Button, Card, CardContent, Badge, Modal, Dropdown, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
+import { ReceiptForm } from '@/components/forms'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
 type ListingStatus = 'ACTIVE' | 'PENDING' | 'SOLD' | 'EXPIRED' | 'REJECTED'
@@ -66,7 +68,7 @@ export default function MyListingsPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [deleteModal, setDeleteModal] = useState<string | null>(null)
-    const [soldModal, setSoldModal] = useState<string | null>(null)
+    const [receiptModal, setReceiptModal] = useState<Listing | null>(null)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
 
     useEffect(() => {
@@ -123,7 +125,6 @@ export default function MyListingsPage() {
                 setListings(listings.map(l =>
                     l.id === id ? { ...l, status: 'SOLD' as ListingStatus, canMarkSold: false, canEdit: false } : l
                 ))
-                setSoldModal(null)
             } else {
                 const error = await res.json()
                 alert(error.error || 'Gagal menandai sebagai terjual')
@@ -134,6 +135,40 @@ export default function MyListingsPage() {
         } finally {
             setActionLoading(null)
         }
+    }
+
+    const handleReceiptCreated = (receipt: any) => {
+        // Refresh listings to update status
+        const fetchListings = async () => {
+            try {
+                const res = await fetch('/api/listings')
+                if (res.ok) {
+                    const data = await res.json()
+                    const mapped = data.map((item: any) => ({
+                        id: item.id,
+                        title: item.title,
+                        slug: item.slug,
+                        brand: item.brand,
+                        model: item.model,
+                        year: item.year,
+                        price: item.price,
+                        views: item.views || 0,
+                        inquiries: item.inquiries || 0,
+                        status: item.status,
+                        canEdit: item.canEdit || false,
+                        canDelete: item.canDelete || false,
+                        canMarkSold: item.canMarkSold || false,
+                        image: item.images && item.images.length > 0 ? item.images[0] : 'https://placehold.co/200x150?text=No+Image',
+                        createdAt: new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    }))
+                    setListings(mapped)
+                }
+            } catch (error) {
+                console.error('Failed to refresh listings', error)
+            }
+        }
+        fetchListings()
+        // Modal tetap terbuka agar user bisa download PDF
     }
 
     const handleDelete = async (id: string) => {
@@ -385,11 +420,11 @@ export default function MyListingsPage() {
                                                     {/* Mark as Sold Button - Only for ACTIVE listings */}
                                                     {listing.canMarkSold ? (
                                                         <button
-                                                            onClick={() => setSoldModal(listing.id)}
+                                                            onClick={() => setReceiptModal(listing)}
                                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
                                                         >
-                                                            <DollarSign className="w-4 h-4" />
-                                                            Terjual
+                                                            <FileText className="w-4 h-4" />
+                                                            Buat Kwitansi
                                                         </button>
                                                     ) : listing.status === 'SOLD' ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-100 border border-green-300 rounded-lg">
@@ -438,36 +473,22 @@ export default function MyListingsPage() {
                 )}
             </div>
 
-            {/* Mark as Sold Confirmation Modal */}
+            {/* Receipt Modal */}
             <Modal
-                isOpen={!!soldModal}
-                onClose={() => setSoldModal(null)}
-                title="Tandai sebagai Terjual?"
+                isOpen={!!receiptModal}
+                onClose={() => setReceiptModal(null)}
+                title="Buat Kwitansi Transaksi"
+                size="lg"
             >
-                <p className="text-gray-600 mb-4">
-                    Iklan akan ditandai sebagai "Terjual" dan tidak akan lagi ditampilkan sebagai mobil yang tersedia.
-                    Hal ini akan membantu pembeli lain mengetahui bahwa mobil ini sudah terjual.
-                </p>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
-                    <strong>Catatan:</strong> Setelah ditandai terjual, iklan tidak dapat diedit atau dihapus lagi.
-                </div>
-                <div className="flex gap-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => setSoldModal(null)}
-                        className="flex-1"
-                        disabled={actionLoading === soldModal}
-                    >
-                        Batal
-                    </Button>
-                    <Button
-                        onClick={() => soldModal && handleMarkAsSold(soldModal)}
-                        className="flex-1 bg-green-500 hover:bg-green-600"
-                        disabled={actionLoading === soldModal}
-                    >
-                        {actionLoading === soldModal ? 'Memproses...' : 'Ya, Terjual'}
-                    </Button>
-                </div>
+                {receiptModal && (
+                    <ReceiptForm
+                        listingId={receiptModal.id}
+                        listingTitle={receiptModal.title}
+                        listingPrice={receiptModal.price}
+                        onSuccess={handleReceiptCreated}
+                        onClose={() => setReceiptModal(null)}
+                    />
+                )}
             </Modal>
 
             {/* Delete Confirmation Modal */}

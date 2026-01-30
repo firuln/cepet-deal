@@ -203,7 +203,7 @@ export default function AdminReviewsListPage() {
             </div>
 
             {/* Rating Distribution */}
-            <Card className="mb-6">
+            <Card variant="dark" className="mb-6">
                 <CardContent className="p-5">
                     <h3 className="text-lg font-semibold text-white mb-4">Distribusi Rating</h3>
                     <div className="space-y-2">
@@ -228,7 +228,7 @@ export default function AdminReviewsListPage() {
             </Card>
 
             {/* Filters */}
-            <Card className="mb-6">
+            <Card variant="dark" className="mb-6">
                 <CardContent className="p-4">
                     <div className="flex gap-4">
                         <select
@@ -266,7 +266,7 @@ export default function AdminReviewsListPage() {
             </Card>
 
             {/* Reviews List */}
-            <Card>
+            <Card variant="dark">
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-400">

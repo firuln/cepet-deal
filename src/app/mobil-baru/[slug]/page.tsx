@@ -74,6 +74,13 @@ interface ListingDetail {
         phone?: string
         avatar?: string
         memberSince: string
+        // Seller stats (NEW)
+        listingCount?: number
+        responseTime?: string
+        responseRate?: number
+        totalViews?: number
+        rating?: number
+        reviewCount?: number
     }
     relatedCars?: RelatedCar[]
     // Car Specifications (NEW)
@@ -378,21 +385,29 @@ export default function MobilBaruDetailPage() {
 
                         {/* Car Info Header - Modern Gradient Accent */}
                         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-                            {/* Trust Badges Bar */}
-                            <div className="bg-gradient-to-r from-primary/5 via-blue-50 to-accent/5 px-6 py-2.5 border-b border-gray-100">
-                                <div className="flex flex-wrap items-center gap-3 text-xs">
-                                    <div className="flex items-center gap-1.5 text-primary font-medium">
-                                        <Shield className="w-3.5 h-3.5" />
-                                        <span>OFFICIAL DEALER</span>
+                            {/* Consolidated Trust Section */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <div className="flex items-center gap-1.5 text-primary font-medium text-sm">
+                                            <Shield className="w-4 h-4" />
+                                            <span>OFFICIAL DEALER</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-accent font-medium text-sm">
+                                            <Sparkles className="w-4 h-4" />
+                                            <span>BRAND NEW</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-gray-500 text-sm">
+                                            <Eye className="w-4 h-4" />
+                                            <span>{formatNumber(listing.views)} views</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-accent font-medium">
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        <span>BRAND NEW</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-gray-500">
-                                        <Eye className="w-3.5 h-3.5" />
-                                        <span>{formatNumber(listing.views)} views</span>
-                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-700">
+                                    <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Dari dealer terpercaya</span>
+                                    <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Unit ready stock</span>
+                                    <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Bisa tukar tambah</span>
+                                    <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Garansi resmi</span>
                                 </div>
                             </div>
 
@@ -502,21 +517,6 @@ export default function MobilBaruDetailPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Trust & Safety Banner */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-t border-gray-100">
-                                <div className="flex items-start gap-3">
-                                    <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="font-semibold text-blue-800 mb-1">Mobil Baru Berkualitas</p>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-700">
-                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Dari dealer terpercaya</span>
-                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Unit ready stock</span>
-                                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Bisa tukar tambah</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         {/* YouTube Video */}
@@ -592,11 +592,14 @@ export default function MobilBaruDetailPage() {
                             </Tabs>
                         </div>
 
-                        {/* Related Cars - Desktop only */}
+                        {/* Related Cars - All Screen Sizes */}
                         {relatedCars.length > 0 && (
-                            <div className="hidden lg:block mb-6">
-                                <h2 className="text-xl font-bold text-secondary mb-4">Mobil Serupa</h2>
-                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="mb-6">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-bold text-secondary">Mobil Serupa</h2>
+                                    <span className="text-sm text-gray-500">{relatedCars.length} mobil</span>
+                                </div>
+                                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                                     {relatedCars.map((car) => (
                                         <CarCard
                                             key={car.id}
@@ -636,7 +639,12 @@ export default function MobilBaruDetailPage() {
                                                 </p>
                                                 <div className="flex items-center gap-1 text-white/90 text-xs">
                                                     <Star className="w-3 h-3 fill-current" />
-                                                    <span>4.8 (128 ulasan)</span>
+                                                    <span>
+                                                        {listing.seller.rating
+                                                            ? `${listing.seller.rating} (${listing.seller.reviewCount ?? 0} ulasan)`
+                                                            : 'Belum ada rating'
+                                                        }
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -696,22 +704,30 @@ export default function MobilBaruDetailPage() {
                                     <div className="grid grid-cols-4 gap-2 mb-5">
                                         <div className="bg-gray-50 rounded-lg p-2 text-center">
                                             <Car className="w-4 h-4 text-primary mx-auto mb-1" />
-                                            <p className="text-sm font-bold text-secondary">156</p>
+                                            <p className="text-sm font-bold text-secondary">
+                                                {listing.seller.listingCount ?? '-'}
+                                            </p>
                                             <p className="text-xs text-gray-500">Listing</p>
                                         </div>
                                         <div className="bg-gray-50 rounded-lg p-2 text-center">
                                             <Clock className="w-4 h-4 text-green-500 mx-auto mb-1" />
-                                            <p className="text-sm font-bold text-secondary">2jam</p>
+                                            <p className="text-sm font-bold text-secondary">
+                                                {listing.seller.responseTime ?? '-'}
+                                            </p>
                                             <p className="text-xs text-gray-500">Respon</p>
                                         </div>
                                         <div className="bg-gray-50 rounded-lg p-2 text-center">
                                             <CheckCircle className="w-4 h-4 text-blue-500 mx-auto mb-1" />
-                                            <p className="text-sm font-bold text-secondary">98%</p>
+                                            <p className="text-sm font-bold text-secondary">
+                                                {listing.seller.responseRate ? `${listing.seller.responseRate}%` : '-'}
+                                            </p>
                                             <p className="text-xs text-gray-500">Rate</p>
                                         </div>
                                         <div className="bg-gray-50 rounded-lg p-2 text-center">
                                             <Eye className="w-4 h-4 text-purple-500 mx-auto mb-1" />
-                                            <p className="text-sm font-bold text-secondary">12k</p>
+                                            <p className="text-sm font-bold text-secondary">
+                                                {listing.seller.totalViews ?? '-'}
+                                            </p>
                                             <p className="text-xs text-gray-500">Views</p>
                                         </div>
                                     </div>
@@ -808,31 +824,6 @@ export default function MobilBaruDetailPage() {
                                     <span className="text-gray-600">Risiko penipuan</span> bukan tanggung jawab CepetDeal.
                                 </p>
                             </div>
-
-                            {/* Related Cars - Mobile only */}
-                            {relatedCars.length > 0 && (
-                                <div className="lg:hidden mt-4">
-                                    <h2 className="text-lg font-bold text-secondary mb-3">Mobil Serupa</h2>
-                                    <div className="grid sm:grid-cols-2 gap-4">
-                                        {relatedCars.map((car) => (
-                                            <CarCard
-                                                key={car.id}
-                                                id={car.id}
-                                                title={car.title}
-                                                slug={car.slug}
-                                                price={car.price}
-                                                year={car.year}
-                                                mileage={car.mileage}
-                                                location={car.location}
-                                                image={car.image || '/placeholder-car.png'}
-                                                condition={car.condition}
-                                                transmission={car.transmission}
-                                                fuelType={car.fuelType}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </aside>
                 </div>

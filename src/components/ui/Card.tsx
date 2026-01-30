@@ -3,16 +3,22 @@ import { cn } from '@/lib/utils'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
     hover?: boolean
+    variant?: 'light' | 'dark'
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-    ({ className, hover = false, children, ...props }, ref) => {
+    ({ className, hover = false, variant = 'light', children, ...props }, ref) => {
         return (
             <div
                 ref={ref}
                 className={cn(
-                    'bg-gray-800 rounded-xl border border-gray-700',
-                    hover && 'transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-gray-600',
+                    'rounded-xl border',
+                    variant === 'dark'
+                        ? 'bg-gray-800 border-gray-700'
+                        : 'bg-white border-gray-200',
+                    hover && 'transition-all duration-300 hover:shadow-lg hover:-translate-y-1',
+                    variant === 'dark' && hover && 'hover:border-gray-600',
+                    variant === 'light' && hover && 'hover:border-gray-300',
                     className
                 )}
                 {...props}
@@ -74,7 +80,7 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
         return (
             <div
                 ref={ref}
-                className={cn('px-4 pb-4 pt-2 border-t border-gray-700', className)}
+                className={cn('px-4 pb-4 pt-2 border-t border-gray-200', className)}
                 {...props}
             />
         )

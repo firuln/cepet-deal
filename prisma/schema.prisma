@@ -41,6 +41,7 @@ model User {
   reviewsGiven      Review[]      @relation("ReviewReviewer")
   reviewsReceived   Review[]      @relation("ReviewSeller")
   viewHistory       ViewHistory[]
+  receipts          Receipt[]    @relation("DealerReceipts")
 
   @@index([phone])
 }
@@ -140,26 +141,26 @@ model Listing {
   serviceTerakhir String?
   latitude        Float?
   longitude       Float?
-  // Car Specifications (NEW)
+  acceleration    Float?
+  cylinders       Int?
+  doors           Int?
   enginePower     Int?
   engineTorque    Int?
-  cylinders       Int?
-  seats           Int?
-  doors           Int?
-  length          Float?
-  width           Float?
-  height          Float?
-  wheelbase       Float?
-  groundClearance Float?
   fuelTank        Float?
+  groundClearance Float?
+  height          Float?
+  length          Float?
   luggageCapacity Float?
-  topSpeed        Int?
-  acceleration    Float?
-  warrantyYears   Int?
-  warrantyKm      Int?
+  seats           Int?
   specs           Json?
+  topSpeed        Int?
+  warrantyKm      Int?
+  warrantyYears   Int?
+  wheelbase       Float?
+  width           Float?
   features        CarFeature[]
   favorites       Favorite[]
+  receipts        Receipt[]
   brand           Brand         @relation(fields: [brandId], references: [id])
   model           Model         @relation(fields: [modelId], references: [id])
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -243,14 +244,14 @@ model SiteSetting {
 }
 
 model AppSettings {
-  id              String   @id @default(cuid())
-  aiProvider      String   @default("zhipu") // "zhipu" | "gemini"
-  zhipuApiKey     String?  @db.Text
-  zhipuModel      String   @default("glm-4-flash")
-  geminiApiKey    String?  @db.Text
-  geminiModel     String   @default("gemini-1.5-flash-002")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(cuid())
+  aiProvider   String   @default("zhipu")
+  zhipuApiKey  String?
+  zhipuModel   String   @default("glm-4-flash")
+  geminiApiKey String?
+  geminiModel  String   @default("gemini-1.5-flash-002")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Article {
@@ -306,6 +307,27 @@ model Review {
   carListing Listing?     @relation("ListingReviews", fields: [listingId], references: [id])
   reviewer   User         @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
   seller     User         @relation("ReviewSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+}
+
+model Receipt {
+  id             String          @id @default(cuid())
+  receiptNumber  String          @unique
+  listingId      String
+  dealerId       String
+  paymentMethod  PaymentMethod
+  tandaJadi      BigInt?
+  downPayment    BigInt
+  buyerName      String
+  buyerAddress   String
+  totalPrice     BigInt
+  remainingPayment BigInt?
+  createdAt      DateTime        @default(now())
+  listing        Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  dealer         User            @relation("DealerReceipts", fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([dealerId])
+  @@index([receiptNumber])
 }
 
 enum UserRole {
@@ -394,4 +416,9 @@ enum ReviewStatus {
   APPROVED
   REJECTED
   HIDDEN
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT
 }

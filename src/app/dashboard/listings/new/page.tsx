@@ -19,6 +19,7 @@ import {
 import { DashboardLayout } from '@/components/layouts'
 import { Button, Card, CardContent, Input, Dropdown, Badge } from '@/components/ui'
 import { SpecsFormAccordion, SpecsFormData } from '@/components/forms/SpecsFormAccordion'
+import { AiDescriptionButton } from '@/components/forms/AiDescriptionButton'
 import {
     TRANSMISSIONS,
     FUEL_TYPES,
@@ -669,9 +670,27 @@ function NewListingForm() {
 
                                 {/* Description */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Deskripsi
-                                    </label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            Deskripsi
+                                        </label>
+                                        <AiDescriptionButton
+                                            carData={{
+                                                brand: formData.brand,
+                                                model: formData.model,
+                                                variant: formData.variant,
+                                                year: formData.year,
+                                                transmission: formData.transmission,
+                                                fuelType: formData.fuelType,
+                                                bodyType: formData.bodyType,
+                                                color: formData.color,
+                                                price: formData.price,
+                                            }}
+                                            condition="NEW"
+                                            onGenerated={(description) => updateFormData('description', description)}
+                                            disabled={isSubmitting}
+                                        />
+                                    </div>
                                     <textarea
                                         id="description-textarea"
                                         rows={10}

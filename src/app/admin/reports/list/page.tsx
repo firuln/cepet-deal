@@ -176,7 +176,7 @@ export default function AdminReportsListPage() {
             </div>
 
             {/* Filters */}
-            <Card className="mb-6">
+            <Card variant="dark" className="mb-6">
                 <CardContent className="p-4">
                     <div className="flex gap-4">
                         <select
@@ -214,7 +214,7 @@ export default function AdminReportsListPage() {
             </Card>
 
             {/* Reports List */}
-            <Card>
+            <Card variant="dark">
                 <CardContent className="p-0">
                     {isLoading ? (
                         <div className="p-8 text-center text-gray-400">
@@ -341,7 +341,7 @@ export default function AdminReportsListPage() {
             {/* Report Detail Modal */}
             {selectedReport && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <Card variant="dark" className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-xl font-bold text-white">Detail Laporan</h2>

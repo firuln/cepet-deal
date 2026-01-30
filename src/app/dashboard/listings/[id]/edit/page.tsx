@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
     ArrowLeft,
@@ -133,7 +133,17 @@ const CAR_FEATURES = {
 export default function EditListingPage() {
     const router = useRouter()
     const params = useParams()
+    const searchParams = useSearchParams()
     const id = params.id as string
+
+    // Store the referring URL params to return to the same page/filter after editing
+    const returnParamsRef = useRef<string>('')
+
+    useEffect(() => {
+        // Store the 'return' params from URL, or use current search params
+        const returnParams = searchParams.get('return') || searchParams.toString()
+        returnParamsRef.current = returnParams
+    }, [searchParams])
 
     const [currentStep, setCurrentStep] = useState(1)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -183,7 +193,10 @@ export default function EditListingPage() {
 
                 if (!listing) {
                     alert('Iklan tidak ditemukan')
-                    router.push('/dashboard/listings')
+                    const returnPath = returnParamsRef.current
+                        ? `/admin/listings?${returnParamsRef.current}`
+                        : '/admin/listings'
+                    router.push(returnPath)
                     return
                 }
 
@@ -216,7 +229,10 @@ export default function EditListingPage() {
             } catch (error) {
                 console.error('Error fetching listing:', error)
                 alert('Gagal memuat data iklan')
-                router.push('/dashboard/listings')
+                const returnPath = returnParamsRef.current
+                    ? `/admin/listings?${returnParamsRef.current}`
+                    : '/admin/listings'
+                router.push(returnPath)
             } finally {
                 setIsLoading(false)
             }
@@ -269,7 +285,11 @@ export default function EditListingPage() {
                 throw new Error(errorData.error || 'Gagal mengupdate iklan')
             }
 
-            router.push('/dashboard/listings?success=updated')
+            // Redirect back to admin/listings with preserved params
+            const returnPath = returnParamsRef.current
+                ? `/admin/listings?${returnParamsRef.current}&success=updated`
+                : '/admin/listings?success=updated'
+            router.push(returnPath)
         } catch (error) {
             console.error(error)
             alert(error instanceof Error ? error.message : 'Terjadi kesalahan saat mengupdate iklan')

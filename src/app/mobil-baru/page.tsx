@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, SlidersHorizontal, Grid, List, X } from 'lucide-react'
-import { Button, Badge } from '@/components/ui'
+import { Search, SlidersHorizontal, Grid, List, X, Loader2 } from 'lucide-react'
+import { Button, Badge, DebouncedSearchInput, FilterBottomSheet } from '@/components/ui'
 import { CarCard } from '@/components/features'
 import {
     TRANSMISSIONS,
@@ -44,6 +44,7 @@ export default function MobilBaruPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [listings, setListings] = useState<Listing[]>([])
     const [loading, setLoading] = useState(true)
+    const [isSearching, setIsSearching] = useState(false)
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [sortBy, setSortBy] = useState('createdAt')
@@ -78,8 +79,12 @@ export default function MobilBaruPage() {
         fetchListings()
     }, [page, sortBy])
 
-    const fetchListings = async () => {
-        setLoading(true)
+    const fetchListings = async (isSearch = false) => {
+        if (isSearch) {
+            setIsSearching(true)
+        } else {
+            setLoading(true)
+        }
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
@@ -109,12 +114,22 @@ export default function MobilBaruPage() {
             console.error('Error fetching listings:', error)
         } finally {
             setLoading(false)
+            setIsSearching(false)
         }
     }
 
     const handleFilterApply = () => {
         setPage(1)
         fetchListings()
+    }
+
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value)
+        setPage(1)
+    }
+
+    const handleSearchDebounced = (value: string) => {
+        fetchListings(true)
     }
 
     const removeFilter = (filter: string) => {
@@ -211,15 +226,13 @@ export default function MobilBaruPage() {
                             </div>
 
                             {/* Search */}
-                            <div className="relative mb-5">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Cari mobil..."
+                            <div className="mb-5">
+                                <DebouncedSearchInput
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleFilterApply()}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                    onChange={handleSearchChange}
+                                    onDebounceComplete={handleSearchDebounced}
+                                    placeholder="Cari mobil..."
+                                    isLoading={isSearching}
                                 />
                             </div>
 
@@ -373,32 +386,22 @@ export default function MobilBaruPage() {
                         </div>
 
                         {/* Mobile Filters */}
-                        {showFilters && (
-                            <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 lg:hidden">
-                                <div className="space-y-4">
-                                    <input
-                                        type="text"
-                                        placeholder="Cari mobil..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm"
-                                    />
-                                    <select
-                                        value={selectedTransmission}
-                                        onChange={(e) => setSelectedTransmission(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm"
-                                    >
-                                        <option value="">Semua Transmisi</option>
-                                        {Object.entries(TRANSMISSIONS).map(([key, label]) => (
-                                            <option key={key} value={key}>{label}</option>
-                                        ))}
-                                    </select>
-                                    <Button className="w-full" onClick={() => { handleFilterApply(); setShowFilters(false); }}>
-                                        Terapkan Filter
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
+                        <FilterBottomSheet
+                            isOpen={showFilters}
+                            onClose={() => setShowFilters(false)}
+                            onApply={handleFilterApply}
+                            onClearAll={clearAllFilters}
+                            selectedBodyType={selectedBodyType}
+                            selectedTransmission={selectedTransmission}
+                            selectedFuelType={selectedFuelType}
+                            selectedPriceRange={selectedPriceRange}
+                            setSelectedBodyType={setSelectedBodyType}
+                            setSelectedTransmission={setSelectedTransmission}
+                            setSelectedFuelType={setSelectedFuelType}
+                            setSelectedPriceRange={setSelectedPriceRange}
+                            searchQuery={searchQuery}
+                            onSearchChange={handleSearchChange}
+                        />
 
                         {/* Loading State */}
                         {loading ? (
@@ -415,10 +418,23 @@ export default function MobilBaruPage() {
                             </div>
                         ) : listings.length === 0 ? (
                             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                                <p className="text-gray-500">Tidak ada mobil baru yang ditemukan</p>
-                                <Button onClick={clearAllFilters} className="mt-4">
-                                    Hapus Filter
-                                </Button>
+                                <div className="w-20 h-20 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <Search className="w-10 h-10 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                    Tidak ada mobil baru yang ditemukan
+                                </h3>
+                                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                                    Coba sesuaikan filter atau kata kunci pencarian Anda untuk melihat lebih banyak hasil.
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                    <Button onClick={clearAllFilters}>
+                                        Hapus Semua Filter
+                                    </Button>
+                                    <Button variant="outline" onClick={() => router.push('/mobil-bekas')}>
+                                        Lihat Mobil Bekas
+                                    </Button>
+                                </div>
                             </div>
                         ) : (
                             <>
@@ -449,7 +465,10 @@ export default function MobilBaruPage() {
 
                                 {/* Pagination */}
                                 {totalPages > 1 && (
-                                    <div className="flex justify-center mt-8">
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+                                        <p className="text-sm text-gray-500">
+                                            Halaman <span className="font-medium text-secondary">{page}</span> dari {totalPages}
+                                        </p>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => setPage(p => Math.max(1, p - 1))}

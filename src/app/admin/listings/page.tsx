@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -21,6 +21,7 @@ import {
     Plus,
     ChevronDown,
     Shield,
+    Edit,
 } from 'lucide-react'
 import { formatNumber, formatCurrency } from '@/lib/utils'
 import { LISTING_STATUS } from '@/lib/constants'
@@ -51,6 +52,7 @@ type SourceTab = 'ALL' | 'ADMIN' | 'SELLER'
 
 export default function AdminListingsPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [listings, setListings] = useState<Listing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
@@ -60,7 +62,34 @@ export default function AdminListingsPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [selectedListing, setSelectedListing] = useState<string | null>(null)
     const [showAddDropdown, setShowAddDropdown] = useState(false)
+    const [statusListingId, setStatusListingId] = useState<string | null>(null)
     const itemsPerPage = 10
+
+    // Initialize state from URL params on mount
+    useEffect(() => {
+        const page = searchParams.get('page')
+        const condition = searchParams.get('condition')
+        const source = searchParams.get('source')
+        const status = searchParams.get('status')
+
+        if (page) setCurrentPage(parseInt(page))
+        if (condition === 'NEW' || condition === 'USED') setConditionTab(condition)
+        if (source === 'ALL' || source === 'ADMIN' || source === 'SELLER') setSourceTab(source)
+        if (status) setStatusFilter(status)
+    }, [searchParams])
+
+    // Update URL params when state changes
+    const updateURLParams = (params: Record<string, string | number | null>) => {
+        const newParams = new URLSearchParams(searchParams.toString())
+        Object.entries(params).forEach(([key, value]) => {
+            if (value === null || value === '') {
+                newParams.delete(key)
+            } else {
+                newParams.set(key, String(value))
+            }
+        })
+        router.push(`/admin/listings?${newParams.toString()}`, { scroll: false })
+    }
 
     useEffect(() => {
         fetchListings()
@@ -210,6 +239,27 @@ export default function AdminListingsPage() {
         setSelectedListing(null)
     }
 
+    const handleChangeStatus = async (listingId: string, newStatus: 'PENDING' | 'ACTIVE') => {
+        try {
+            const res = await fetch('/api/admin/listings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: listingId, status: newStatus })
+            })
+            if (res.ok) {
+                fetchListings()
+            } else {
+                const error = await res.json()
+                alert(error.error || 'Gagal mengubah status')
+            }
+        } catch (error) {
+            console.error('Error changing status:', error)
+            alert('Gagal mengubah status')
+        }
+        setSelectedListing(null)
+        setStatusListingId(null)
+    }
+
     // Count statistics
     const getAllCount = () => listings.filter(l => l.condition === conditionTab).length
     const getAdminCount = () => listings.filter(l => l.condition === conditionTab && l.user?.role === 'ADMIN').length
@@ -273,7 +323,7 @@ export default function AdminListingsPage() {
             <div className="bg-gray-800 rounded-xl border border-gray-700 p-2 mb-6">
                 <div className="flex gap-2">
                     <button
-                        onClick={() => { setConditionTab('NEW'); setSourceTab('ALL'); setCurrentPage(1) }}
+                        onClick={() => { setConditionTab('NEW'); setSourceTab('ALL'); setCurrentPage(1); updateURLParams({ condition: 'NEW', source: 'ALL', page: '1' }) }}
                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                             conditionTab === 'NEW'
                                 ? 'bg-accent text-white'
@@ -284,7 +334,7 @@ export default function AdminListingsPage() {
                         <span className="font-semibold">Mobil Baru</span>
                     </button>
                     <button
-                        onClick={() => { setConditionTab('USED'); setSourceTab('ALL'); setCurrentPage(1) }}
+                        onClick={() => { setConditionTab('USED'); setSourceTab('ALL'); setCurrentPage(1); updateURLParams({ condition: 'USED', source: 'ALL', page: '1' }) }}
                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
                             conditionTab === 'USED'
                                 ? 'bg-primary text-white'
@@ -301,7 +351,7 @@ export default function AdminListingsPage() {
             <div className="bg-gray-800/50 rounded-xl border border-gray-700 p-2 mb-6">
                 <div className="flex gap-2">
                     <button
-                        onClick={() => { setSourceTab('ALL'); setCurrentPage(1) }}
+                        onClick={() => { setSourceTab('ALL'); setCurrentPage(1); updateURLParams({ source: 'ALL', page: '1' }) }}
                         className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                             sourceTab === 'ALL'
                                 ? 'bg-white text-gray-900'
@@ -312,7 +362,7 @@ export default function AdminListingsPage() {
                         <span className="text-xs bg-gray-600 px-2 py-0.5 rounded-full">({getAllCount()})</span>
                     </button>
                     <button
-                        onClick={() => { setSourceTab('ADMIN'); setCurrentPage(1) }}
+                        onClick={() => { setSourceTab('ADMIN'); setCurrentPage(1); updateURLParams({ source: 'ADMIN', page: '1' }) }}
                         className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                             sourceTab === 'ADMIN'
                                 ? 'bg-accent/20 text-accent border border-accent/30'
@@ -324,7 +374,7 @@ export default function AdminListingsPage() {
                         <span className="text-xs bg-gray-600 px-2 py-0.5 rounded-full">({getAdminCount()})</span>
                     </button>
                     <button
-                        onClick={() => { setSourceTab('SELLER'); setCurrentPage(1) }}
+                        onClick={() => { setSourceTab('SELLER'); setCurrentPage(1); updateURLParams({ source: 'SELLER', page: '1' }) }}
                         className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                             sourceTab === 'SELLER'
                                 ? 'bg-primary/20 text-primary border border-primary/30'
@@ -356,6 +406,7 @@ export default function AdminListingsPage() {
                         onChange={(e) => {
                             setStatusFilter(e.target.value)
                             setCurrentPage(1)
+                            updateURLParams({ status: e.target.value, page: '1' })
                         }}
                         className="px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
@@ -504,11 +555,35 @@ export default function AdminListingsPage() {
                                                                 <Star className="w-4 h-4" />
                                                                 Jadikan Featured
                                                             </button>
+
+                                                            {/* Status change options for SOLD listings */}
+                                                            {listing.status === 'SOLD' && (
+                                                                <>
+                                                                    <div className="px-4 py-2 text-xs text-gray-500 border-t border-gray-600 mt-1">
+                                                                        Ubah Status
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleChangeStatus(listing.id, 'ACTIVE')}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-400 hover:bg-gray-600"
+                                                                    >
+                                                                        <CheckCircle className="w-4 h-4" />
+                                                                        Jadikan Aktif
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleChangeStatus(listing.id, 'PENDING')}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-yellow-400 hover:bg-gray-600"
+                                                                    >
+                                                                        <Clock className="w-4 h-4" />
+                                                                        Jadikan Menunggu
+                                                                    </button>
+                                                                </>
+                                                            )}
+
                                                             <Link
-                                                                href={`/dashboard/listings/${listing.id}/edit`}
+                                                                href={`/dashboard/listings/${listing.id}/edit?return=${encodeURIComponent(searchParams.toString())}`}
                                                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
                                                             >
-                                                                <ExternalLink className="w-4 h-4" />
+                                                                <Edit className="w-4 h-4" />
                                                                 Edit
                                                             </Link>
                                                             <button
@@ -538,7 +613,11 @@ export default function AdminListingsPage() {
                         </p>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                onClick={() => {
+                                    const newPage = Math.max(1, currentPage - 1)
+                                    setCurrentPage(newPage)
+                                    updateURLParams({ page: String(newPage) })
+                                }}
                                 disabled={currentPage === 1}
                                 className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50"
                             >
@@ -546,7 +625,11 @@ export default function AdminListingsPage() {
                             </button>
                             <span className="text-sm text-gray-300">{currentPage} / {totalPages}</span>
                             <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                onClick={() => {
+                                    const newPage = Math.min(totalPages, currentPage + 1)
+                                    setCurrentPage(newPage)
+                                    updateURLParams({ page: String(newPage) })
+                                }}
                                 disabled={currentPage === totalPages}
                                 className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50"
                             >

@@ -147,7 +147,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
 
     if (previewMode) {
         return (
-            <Card>
+            <Card variant="dark">
                 <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-bold text-white">Preview Artikel</h2>
@@ -254,7 +254,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Title */}
-                    <Card>
+                    <Card variant="dark">
                         <CardContent className="p-6">
                             <div className="space-y-4">
                                 <div>
@@ -306,7 +306,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
                     </Card>
 
                     {/* Content Editor */}
-                    <Card>
+                    <Card variant="dark">
                         <CardContent className="p-0">
                             <div>
                                 <div className="flex items-center justify-between p-6 pb-2">
@@ -347,7 +347,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
                 {/* Sidebar */}
                 <div className="space-y-6">
                     {/* Status & Category */}
-                    <Card>
+                    <Card variant="dark">
                         <CardContent className="p-6">
                             <h3 className="font-semibold text-white mb-4">Publikasi</h3>
 
@@ -402,7 +402,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
                     </Card>
 
                     {/* Featured Image */}
-                    <Card>
+                    <Card variant="dark">
                         <CardContent className="p-6">
                             <h3 className="font-semibold text-white mb-4">Gambar Utama</h3>
 
@@ -454,7 +454,7 @@ export function ArticleForm({ article, isEditing = false }: ArticleFormProps) {
                     </Card>
 
                     {/* SEO */}
-                    <Card>
+                    <Card variant="dark">
                         <CardContent className="p-6">
                             <h3 className="font-semibold text-white mb-4">SEO Meta Tags</h3>
 
