@@ -829,7 +829,7 @@ function TestimonialsSection() {
     return (
       <section className="py-16 animate-fade-in">
         <div className="container">
-          <div className="text-center mb-10">
+          <div className="text-center lg:mb-10 mb-2">
             <div className="flex items-center justify-center gap-3 mb-4">
               <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
                 <Quote className="w-6 h-6 text-yellow-600" />
@@ -952,7 +952,7 @@ function TestimonialsSection() {
 
         {/* Mobile: Horizontal Continuous Slider with pause on hover */}
         <div
-          className="md:hidden relative h-[420px] overflow-hidden"
+          className="md:hidden relative h-[240px] overflow-hidden"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
           onTouchStart={() => setIsPaused(true)}
@@ -1025,7 +1025,7 @@ function TestimonialsSection() {
         </div>
 
         {/* CTA */}
-        <div className="mt-12 text-center">
+        <div className="lg:mt-12 mt-4 text-center">
           <p className="text-gray-500 mb-4">Bergabung dengan ribuan pelanggan puas lainnya</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">

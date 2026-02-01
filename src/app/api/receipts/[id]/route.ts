@@ -62,3 +62,42 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to fetch receipt' }, { status: 500 })
   }
 }
+
+// DELETE /api/receipts/[id] - Delete receipt by ID
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+
+    // Verify ownership before deleting
+    const receipt = await prisma.receipt.findUnique({
+      where: { id },
+    })
+
+    if (!receipt) {
+      return NextResponse.json({ error: 'Receipt not found' }, { status: 404 })
+    }
+
+    if (receipt.dealerId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Delete the receipt
+    await prisma.receipt.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true, message: 'Receipt deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting receipt:', error)
+    return NextResponse.json({ error: 'Failed to delete receipt' }, { status: 500 })
+  }
+}

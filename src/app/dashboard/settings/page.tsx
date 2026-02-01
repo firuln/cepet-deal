@@ -16,6 +16,7 @@ import {
     Clock,
     Save,
     X,
+    XCircle,
     Check,
     Car,
     Eye,
@@ -26,6 +27,7 @@ import {
     Lock,
     Edit,
     AlertCircle,
+    FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { Badge } from '@/components/ui'
@@ -48,6 +50,8 @@ interface UserProfile {
         companyName?: string
         address?: string
         verified?: boolean
+        companyNameEditCount?: number
+        companyNameEditedAt?: string
     }
 }
 
@@ -95,7 +99,7 @@ const DAYS = [
     { key: 'sunday', label: 'Minggu' },
 ]
 
-type TabType = 'profile' | 'contact' | 'security' | 'business' | 'response'
+type TabType = 'profile' | 'contact' | 'security' | 'business' | 'response' | 'verification'
 
 export default function SettingsPage() {
     const { data: session, update } = useSession()
@@ -103,9 +107,12 @@ export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState<TabType>('profile')
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
     const [errorMessage, setErrorMessage] = useState('')
+    const [showroomNameStatus, setShowroomNameStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+    const [showroomNameError, setShowroomNameError] = useState('')
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+    const [isEditingShowroomName, setIsEditingShowroomName] = useState(false)
 
     // Username update info
     const [usernameInfo, setUsernameInfo] = useState<UsernameUpdateInfo | null>(null)
@@ -121,6 +128,29 @@ export default function SettingsPage() {
     const [phoneOtpCountdown, setPhoneOtpCountdown] = useState(0)
     const [phoneError, setPhoneError] = useState('')
     const [phoneLoading, setPhoneLoading] = useState(false)
+
+    // Seller verification state
+    const [sellerVerificationStatus, setSellerVerificationStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | null>(null)
+    const [sellerVerificationData, setSellerVerificationData] = useState<any>(null)
+    const [isSellerVerified, setIsSellerVerified] = useState(false)
+    const [isSubmittingVerification, setIsSubmittingVerification] = useState(false)
+    const [verificationError, setVerificationError] = useState('')
+    const [verificationSuccess, setVerificationSuccess] = useState(false)
+
+    // Verification form state
+    const [verificationForm, setVerificationForm] = useState({
+        identityType: 'INDIVIDUAL' as 'INDIVIDUAL' | 'BUSINESS',
+        idCardNumber: '',
+        taxIdNumber: '',
+        businessName: '',
+        businessAddress: '',
+    })
+    const [verificationFiles, setVerificationFiles] = useState({
+        ktpDocument: null as File | null,
+        selfieDocument: null as File | null,
+        npwpDocument: null as File | null,
+        businessDocument: null as File | null,
+    })
 
     const [formData, setFormData] = useState<FormData>({
         name: '',
@@ -175,6 +205,15 @@ export default function SettingsPage() {
                 if (usernameRes.ok) {
                     const info = await usernameRes.json()
                     setUsernameInfo(info)
+                }
+
+                // Fetch seller verification status
+                const verificationRes = await fetch('/api/seller/verification/status')
+                if (verificationRes.ok) {
+                    const verificationData = await verificationRes.json()
+                    setSellerVerificationStatus(verificationData.status)
+                    setIsSellerVerified(verificationData.isSellerVerified)
+                    setSellerVerificationData(verificationData)
                 }
             } catch (error) {
                 console.error('Error fetching data:', error)
@@ -256,7 +295,7 @@ export default function SettingsPage() {
                     phone: formData.phone,
                     whatsapp: formData.whatsapp,
                     avatar: avatarPreview,
-                    showroomName: formData.showroomName,
+                    // Note: showroomName, address, city are saved separately via dealer profile API
                     showroomAddress: formData.address,
                     showroomCity: formData.city,
                 }),
@@ -289,6 +328,47 @@ export default function SettingsPage() {
         } catch (error: any) {
             setSaveStatus('error')
             setErrorMessage(error.message || 'Gagal menyimpan profil')
+        }
+    }
+
+    const handleSaveShowroomName = async () => {
+        if (!isDealer) return
+
+        setShowroomNameStatus('saving')
+        setShowroomNameError('')
+
+        try {
+            const res = await fetch('/api/dealer/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyName: formData.showroomName,
+                }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                if (data.canEdit === false) {
+                    throw new Error(data.error || 'Nama showroom hanya dapat diubah 1 kali')
+                }
+                throw new Error(data.error || 'Gagal mengubah nama showroom')
+            }
+
+            setShowroomNameStatus('saved')
+            setIsEditingShowroomName(false)
+
+            // Refresh user profile to get updated edit count
+            const profileRes = await fetch('/api/users/me')
+            if (profileRes.ok) {
+                const profileData = await profileRes.json()
+                setUserProfile(profileData)
+            }
+
+            setTimeout(() => setShowroomNameStatus('idle'), 2000)
+        } catch (error: any) {
+            setShowroomNameStatus('error')
+            setShowroomNameError(error.message || 'Gagal mengubah nama showroom')
         }
     }
 
@@ -388,16 +468,109 @@ export default function SettingsPage() {
         return `${mins}:${secs.toString().padStart(2, '0')}`
     }
 
+    // Seller verification submit handler
+    const handleVerificationSubmit = async () => {
+        setIsSubmittingVerification(true)
+        setVerificationError('')
+        setVerificationSuccess(false)
+
+        try {
+            // Validate required fields
+            if (!verificationForm.idCardNumber.trim()) {
+                throw new Error('Nomor KTP wajib diisi')
+            }
+
+            if (!verificationFiles.ktpDocument) {
+                throw new Error('Dokumen KTP wajib diupload')
+            }
+
+            if (!verificationFiles.selfieDocument) {
+                throw new Error('Foto selfie dengan KTP wajib diupload')
+            }
+
+            if (verificationForm.identityType === 'BUSINESS') {
+                if (!verificationForm.businessName.trim()) {
+                    throw new Error('Nama usaha wajib diisi untuk jenis identitas Badan Usaha')
+                }
+                if (!verificationForm.businessAddress.trim()) {
+                    throw new Error('Alamat usaha wajib diisi untuk jenis identitas Badan Usaha')
+                }
+            }
+
+            // Create FormData for file upload
+            const formDataToSend = new FormData()
+            formDataToSend.append('identityType', verificationForm.identityType)
+            formDataToSend.append('idCardNumber', verificationForm.idCardNumber.trim())
+            if (verificationForm.taxIdNumber.trim()) {
+                formDataToSend.append('taxIdNumber', verificationForm.taxIdNumber.trim())
+            }
+            if (verificationForm.identityType === 'BUSINESS') {
+                formDataToSend.append('businessName', verificationForm.businessName.trim())
+                formDataToSend.append('businessAddress', verificationForm.businessAddress.trim())
+            }
+            if (verificationFiles.ktpDocument) {
+                formDataToSend.append('ktpDocument', verificationFiles.ktpDocument)
+            }
+            if (verificationFiles.selfieDocument) {
+                formDataToSend.append('selfieDocument', verificationFiles.selfieDocument)
+            }
+            if (verificationFiles.npwpDocument) {
+                formDataToSend.append('npwpDocument', verificationFiles.npwpDocument)
+            }
+            if (verificationFiles.businessDocument) {
+                formDataToSend.append('businessDocument', verificationFiles.businessDocument)
+            }
+
+            const res = await fetch('/api/seller/verification/request', {
+                method: 'POST',
+                body: formDataToSend,
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Gagal mengirim pengajuan verifikasi')
+            }
+
+            setVerificationSuccess(true)
+            setSellerVerificationStatus('PENDING')
+
+            // Reset form
+            setTimeout(() => {
+                ;(async () => {
+                    setVerificationSuccess(false)
+                    // Refresh verification status
+                    const verificationRes = await fetch('/api/seller/verification/status')
+                    if (verificationRes.ok) {
+                        const verificationData = await verificationRes.json()
+                        setSellerVerificationStatus(verificationData.status)
+                        setSellerVerificationData(verificationData)
+                    }
+                })()
+            }, 3000)
+
+        } catch (error: any) {
+            setVerificationError(error.message || 'Gagal mengirim pengajuan verifikasi')
+        } finally {
+            setIsSubmittingVerification(false)
+        }
+    }
+
     const displayName = formData.showroomName || formData.name
     const displayType = session?.user?.role === 'DEALER' ? 'Dealer' : 'Pribadi'
     const isVerified = userProfile?.dealer?.verified || false
     const isDealer = session?.user?.role === 'DEALER'
 
     // Define tabs based on role
+    const isSeller = session?.user?.role === 'SELLER'
+
     const tabs = [
         { key: 'profile' as TabType, label: 'Profil', icon: User },
         { key: 'contact' as TabType, label: 'Kontak', icon: MessageCircle },
         { key: 'security' as TabType, label: 'Keamanan', icon: Shield },
+        ...(isSeller ? [
+            { key: 'verification' as TabType, label: 'Verifikasi', icon: Check },
+        ] : []),
         ...(isDealer ? [
             { key: 'business' as TabType, label: 'Bisnis', icon: Building2 },
             { key: 'response' as TabType, label: 'Respon', icon: Clock },
@@ -753,19 +926,106 @@ export default function SettingsPage() {
                                 {/* Business Tab (DEALER only) */}
                                 {activeTab === 'business' && isDealer && (
                                     <div className="space-y-6">
-                                        {/* Showroom Name */}
+                                        {/* Showroom Name with Limited Edits */}
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Nama Showroom *
-                                            </label>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="block text-sm font-medium text-gray-700">
+                                                    Nama Showroom *
+                                                </label>
+                                                {userProfile?.dealer?.companyNameEditCount === 0 && !isEditingShowroomName && (
+                                                    <button
+                                                        onClick={() => setIsEditingShowroomName(true)}
+                                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                    >
+                                                        <Edit className="w-3 h-3" />
+                                                        Edit
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Warning Box */}
+                                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3">
+                                                <div className="flex items-start gap-3">
+                                                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-amber-800">
+                                                            Nama showroom hanya dapat diubah 1 kali
+                                                        </p>
+                                                        <p className="text-xs text-amber-700 mt-1">
+                                                            Perubahan nama showroom dibatasi untuk keperluan SEO. Pastikan nama yang dimasukkan sudah benar dan sesuai dengan bisnis Anda.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Show last edited info if already edited */}
+                                            {userProfile?.dealer?.companyNameEditCount && userProfile.dealer.companyNameEditCount >= 1 && userProfile.dealer.companyNameEditedAt && (
+                                                <div className="bg-gray-100 rounded-lg p-3 mb-3">
+                                                    <p className="text-sm text-gray-600">
+                                                        Nama showroom terakhir diubah pada{' '}
+                                                        {new Date(userProfile.dealer.companyNameEditedAt).toLocaleDateString('id-ID', {
+                                                            day: 'numeric',
+                                                            month: 'long',
+                                                            year: 'numeric'
+                                                        })}
+                                                    </p>
+                                                </div>
+                                            )}
+
                                             <input
                                                 type="text"
                                                 value={formData.showroomName}
                                                 onChange={(e) => updateField('showroomName', e.target.value)}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                disabled={!isEditingShowroomName || (userProfile?.dealer?.companyNameEditCount && userProfile.dealer.companyNameEditCount >= 1)}
+                                                className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                                                    !isEditingShowroomName || (userProfile?.dealer?.companyNameEditCount && userProfile.dealer.companyNameEditCount >= 1)
+                                                        ? 'border-gray-300 bg-gray-50 text-gray-600 cursor-not-allowed'
+                                                        : 'border-gray-300'
+                                                }`}
                                                 placeholder="Auto Space Motor"
                                             />
-                                            <p className="mt-1 text-xs text-gray-500">Nama showroom akan muncul di kartu profil.</p>
+
+                                            {/* Edit/Cancel/Save Buttons */}
+                                            {isEditingShowroomName && (!userProfile?.dealer?.companyNameEditCount || userProfile.dealer.companyNameEditCount < 1) && (
+                                                <div className="flex gap-2 mt-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditingShowroomName(false)
+                                                            setFormData(prev => ({ ...prev, showroomName: userProfile?.dealer?.companyName || '' }))
+                                                        }}
+                                                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                                        disabled={showroomNameStatus === 'saving'}
+                                                    >
+                                                        Batal
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSaveShowroomName}
+                                                        disabled={showroomNameStatus === 'saving' || !formData.showroomName.trim()}
+                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {showroomNameStatus === 'saving' ? 'Menyimpan...' : 'Simpan Nama'}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {/* Show error message */}
+                                            {showroomNameStatus === 'error' && showroomNameError && (
+                                                <p className="mt-2 text-xs text-red-600">{showroomNameError}</p>
+                                            )}
+
+                                            {/* Show success message */}
+                                            {showroomNameStatus === 'saved' && (
+                                                <p className="mt-2 text-xs text-green-600">Nama showroom berhasil diubah</p>
+                                            )}
+
+                                            {!isEditingShowroomName && (
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {userProfile?.dealer?.companyNameEditCount && userProfile.dealer.companyNameEditCount >= 1
+                                                        ? 'Nama showroom sudah tidak dapat diubah.'
+                                                        : 'Klik tombol Edit untuk mengubah nama showroom.'
+                                                    }
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* City */}
@@ -892,6 +1152,342 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
                                 )}
+
+                                {/* Verification Tab (SELLER only) */}
+                                {activeTab === 'verification' && isSeller && (
+                                    <div className="space-y-6">
+                                        {/* Verification Status Display */}
+                                        {isSellerVerified ? (
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                <div className="flex items-center gap-2 text-green-800">
+                                                    <Check className="w-5 h-5" />
+                                                    <span className="font-medium">Akun Anda sudah terverifikasi</span>
+                                                </div>
+                                                <p className="text-sm text-green-700 mt-1">
+                                                    Terverifikasi sejak {sellerVerificationData?.sellerVerifiedAt
+                                                        ? new Date(sellerVerificationData.sellerVerifiedAt).toLocaleDateString('id-ID', {
+                                                            day: 'numeric',
+                                                            month: 'long',
+                                                            year: 'numeric'
+                                                        })
+                                                        : '-'}
+                                                </p>
+                                            </div>
+                                        ) : sellerVerificationStatus === 'PENDING' ? (
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                                <div className="flex items-center gap-2 text-yellow-800 mb-2">
+                                                    <Clock className="w-5 h-5" />
+                                                    <span className="font-medium">Verifikasi sedang diproses</span>
+                                                </div>
+                                                <p className="text-sm text-yellow-700">
+                                                    Pengajuan verifikasi Anda sedang ditinjau oleh admin. Proses ini biasanya memakan waktu 1-3 hari kerja.
+                                                </p>
+                                                {sellerVerificationData?.submittedAt && (
+                                                    <p className="text-xs text-yellow-600 mt-2">
+                                                        Diajukan pada {new Date(sellerVerificationData.submittedAt).toLocaleDateString('id-ID', {
+                                                            day: 'numeric',
+                                                            month: 'long',
+                                                            year: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : sellerVerificationStatus === 'REJECTED' ? (
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <div className="flex items-center gap-2 text-red-800 mb-2">
+                                                    <XCircle className="w-5 h-5" />
+                                                    <span className="font-medium">Verifikasi ditolak</span>
+                                                </div>
+                                                <p className="text-sm text-red-700">
+                                                    {sellerVerificationData?.rejectionReason || 'Pengajuan verifikasi Anda tidak disetujui. Silakan periksa kembali dokumen Anda dan ajukan kembali.'}
+                                                </p>
+                                            </div>
+                                        ) : null}
+
+                                        {/* Verification Form */}
+                                        {!isSellerVerified && sellerVerificationStatus !== 'PENDING' && (
+                                            <>
+                                                {verificationSuccess && (
+                                                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                        <div className="flex items-center gap-2 text-green-800">
+                                                            <Check className="w-5 h-5" />
+                                                            <span className="font-medium">Pengajuan verifikasi berhasil dikirim</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {verificationError && (
+                                                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                                        <p className="text-sm text-red-800">{verificationError}</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Identity Type Selection */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Jenis Identitas *
+                                                    </label>
+                                                    <div className="flex gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setVerificationForm(prev => ({ ...prev, identityType: 'INDIVIDUAL' }))}
+                                                            className={`flex-1 px-4 py-3 rounded-lg border-2 text-left transition-colors ${
+                                                                verificationForm.identityType === 'INDIVIDUAL'
+                                                                    ? 'border-primary bg-primary/5 text-primary'
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                            }`}
+                                                        >
+                                                            <div className="font-medium">Perorangan</div>
+                                                            <div className="text-xs mt-1 opacity-70">Untuk penjual perseorangan</div>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setVerificationForm(prev => ({ ...prev, identityType: 'BUSINESS' }))}
+                                                            className={`flex-1 px-4 py-3 rounded-lg border-2 text-left transition-colors ${
+                                                                verificationForm.identityType === 'BUSINESS'
+                                                                    ? 'border-primary bg-primary/5 text-primary'
+                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                            }`}
+                                                        >
+                                                            <div className="font-medium">Badan Usaha</div>
+                                                            <div className="text-xs mt-1 opacity-70">Untuk dealer atau bisnis</div>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* KTP Number */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Nomor KTP *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={verificationForm.idCardNumber}
+                                                        onChange={(e) => setVerificationForm(prev => ({ ...prev, idCardNumber: e.target.value }))}
+                                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                        placeholder="16 digit nomor KTP"
+                                                        maxLength={16}
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500">Masukkan 16 digit nomor KTP Anda.</p>
+                                                </div>
+
+                                                {/* NPWP Number */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Nomor NPWP {verificationForm.identityType === 'INDIVIDUAL' && '(Opsional)'}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={verificationForm.taxIdNumber}
+                                                        onChange={(e) => setVerificationForm(prev => ({ ...prev, taxIdNumber: e.target.value }))}
+                                                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                        placeholder="15 digit nomor NPWP"
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        {verificationForm.identityType === 'BUSINESS'
+                                                            ? 'Wajib diisi untuk jenis identitas Badan Usaha.'
+                                                            : 'Opsional untuk perorangan.'}
+                                                    </p>
+                                                </div>
+
+                                                {/* Business Name (for BUSINESS type) */}
+                                                {verificationForm.identityType === 'BUSINESS' && (
+                                                    <>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                Nama Usaha *
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                value={verificationForm.businessName}
+                                                                onChange={(e) => setVerificationForm(prev => ({ ...prev, businessName: e.target.value }))}
+                                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                                                placeholder="Nama usaha atau bisnis Anda"
+                                                            />
+                                                        </div>
+
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                Alamat Usaha *
+                                                            </label>
+                                                            <textarea
+                                                                value={verificationForm.businessAddress}
+                                                                onChange={(e) => setVerificationForm(prev => ({ ...prev, businessAddress: e.target.value }))}
+                                                                rows={3}
+                                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                                                                placeholder="Alamat lengkap usaha Anda"
+                                                            />
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {/* Document Upload Section */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                        Upload Dokumen *
+                                                    </label>
+                                                    <div className="space-y-4">
+                                                        {/* KTP Document */}
+                                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileText className="w-5 h-5 text-gray-400" />
+                                                                    <span className="font-medium text-gray-700">KTP (Kartu Tanda Penduduk)</span>
+                                                                    <span className="text-red-500">*</span>
+                                                                </div>
+                                                                {verificationFiles.ktpDocument && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setVerificationFiles(prev => ({ ...prev, ktpDocument: null }))}
+                                                                        className="text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/jpeg,image/jpg,image/png"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0]
+                                                                    if (file) setVerificationFiles(prev => ({ ...prev, ktpDocument: file }))
+                                                                }}
+                                                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                                            />
+                                                            <p className="mt-1 text-xs text-gray-500">Format: JPG, PNG. Maksimal 5MB.</p>
+                                                        </div>
+
+                                                        {/* Selfie with KTP Document */}
+                                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Camera className="w-5 h-5 text-gray-400" />
+                                                                    <span className="font-medium text-gray-700">Foto Selfie dengan KTP</span>
+                                                                    <span className="text-red-500">*</span>
+                                                                </div>
+                                                                {verificationFiles.selfieDocument && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setVerificationFiles(prev => ({ ...prev, selfieDocument: null }))}
+                                                                        className="text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/jpeg,image/jpg,image/png"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0]
+                                                                    if (file) setVerificationFiles(prev => ({ ...prev, selfieDocument: file }))
+                                                                }}
+                                                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                                            />
+                                                            <p className="mt-1 text-xs text-gray-500">Format: JPG, PNG. Maksimal 5MB. Pastikan wajah dan KTP terlihat jelas.</p>
+                                                        </div>
+
+                                                        {/* NPWP Document */}
+                                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <FileText className="w-5 h-5 text-gray-400" />
+                                                                    <span className="font-medium text-gray-700">NPWP (Nomor Pokok Wajib Pajak)</span>
+                                                                </div>
+                                                                {verificationFiles.npwpDocument && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setVerificationFiles(prev => ({ ...prev, npwpDocument: null }))}
+                                                                        className="text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                            <input
+                                                                type="file"
+                                                                accept="image/jpeg,image/jpg,image/png,application/pdf"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0]
+                                                                    if (file) setVerificationFiles(prev => ({ ...prev, npwpDocument: file }))
+                                                                }}
+                                                                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                                            />
+                                                            <p className="mt-1 text-xs text-gray-500">Format: JPG, PNG, PDF. Maksimal 5MB.</p>
+                                                        </div>
+
+                                                        {/* Business Document (for BUSINESS type) */}
+                                                        {verificationForm.identityType === 'BUSINESS' && (
+                                                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary/50 transition-colors">
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Building2 className="w-5 h-5 text-gray-400" />
+                                                                        <span className="font-medium text-gray-700">Dokumen Usaha</span>
+                                                                    </div>
+                                                                    {verificationFiles.businessDocument && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVerificationFiles(prev => ({ ...prev, businessDocument: null }))}
+                                                                            className="text-red-500 hover:text-red-700"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/jpeg,image/jpg,image/png,application/pdf"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0]
+                                                                        if (file) setVerificationFiles(prev => ({ ...prev, businessDocument: file }))
+                                                                    }}
+                                                                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                                                />
+                                                                <p className="mt-1 text-xs text-gray-500">Format: JPG, PNG, PDF. Maksimal 5MB. (Opsional)</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Submit Button */}
+                                                <Button
+                                                    onClick={handleVerificationSubmit}
+                                                    disabled={isSubmittingVerification}
+                                                    className="w-full"
+                                                >
+                                                    {isSubmittingVerification ? (
+                                                        <>
+                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                            Mengirim...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Shield className="w-4 h-4 mr-2" />
+                                                            Ajukan Verifikasi
+                                                        </>
+                                                    )}
+                                                </Button>
+
+                                                {/* Info Box */}
+                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                    <div className="flex items-start gap-2">
+                                                        <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                                        <div className="text-sm text-blue-800">
+                                                            <p className="font-medium mb-1">Informasi Verifikasi</p>
+                                                            <ul className="list-disc list-inside space-y-1 text-blue-700">
+                                                                <li>Pastikan semua dokumen dalam keadaan jelas dan dapat dibaca</li>
+                                                                <li>Proses verifikasi memakan waktu 1-3 hari kerja</li>
+                                                                <li>Anda akan mendapatkan badge "Terverifikasi" setelah disetujui</li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -906,20 +1502,65 @@ export default function SettingsPage() {
                                     <p className="text-sm text-gray-500">Tingkatkan kepercayaan pembeli</p>
                                 </div>
                             </div>
-                            {isVerified ? (
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                    <div className="flex items-center gap-2 text-green-800">
-                                        <Check className="w-5 h-5" />
-                                        <span className="font-medium">Akun Anda sudah terverifikasi</span>
-                                    </div>
-                                </div>
-                            ) : (
+                            {/* For Dealers - show dealer verification status */}
+                            {isDealer && (
+                                <>
+                                    {isVerified ? (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 text-green-800">
+                                                <Check className="w-5 h-5" />
+                                                <span className="font-medium">Akun Dealer sudah terverifikasi</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                            <p className="text-sm text-gray-600 mb-3">Verifikasi akun dealer Anda untuk mendapatkan badge verified dan meningkatkan kepercayaan pembeli.</p>
+                                            <Button variant="outline" className="w-full" disabled>
+                                                <Shield className="w-4 h-4 mr-2" />
+                                                Ajukan Verifikasi Dealer
+                                            </Button>
+                                            <p className="text-xs text-gray-500 mt-2">Hubungi admin untuk verifikasi dealer</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                            {/* For Sellers - show seller verification status */}
+                            {isSeller && (
+                                <>
+                                    {isSellerVerified ? (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 text-green-800">
+                                                <Check className="w-5 h-5" />
+                                                <span className="font-medium">Akun Anda sudah terverifikasi</span>
+                                            </div>
+                                        </div>
+                                    ) : sellerVerificationStatus === 'PENDING' ? (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                            <div className="flex items-center gap-2 text-yellow-800 mb-1">
+                                                <Clock className="w-5 h-5" />
+                                                <span className="font-medium">Verifikasi sedang diproses</span>
+                                            </div>
+                                            <p className="text-sm text-yellow-700">Admin akan meninjau pengajuan Anda dalam 1-3 hari kerja.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                            <p className="text-sm text-gray-600 mb-3">Verifikasi akun Anda untuk mendapatkan badge verified dan meningkatkan kepercayaan pembeli.</p>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() => setActiveTab('verification')}
+                                            >
+                                                <Shield className="w-4 h-4 mr-2" />
+                                                Ajukan Verifikasi
+                                            </Button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                            {/* For Buyers - show info */}
+                            {!isDealer && !isSeller && (
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                    <p className="text-sm text-gray-600 mb-3">Verifikasi akun Anda untuk mendapatkan badge verified dan meningkatkan kepercayaan pembeli.</p>
-                                    <Button variant="outline" className="w-full">
-                                        <Shield className="w-4 h-4 mr-2" />
-                                        Ajukan Verifikasi
-                                    </Button>
+                                    <p className="text-sm text-gray-600">Daftar sebagai SELLER atau DEALER untuk mengakses fitur verifikasi.</p>
                                 </div>
                             )}
                         </div>
@@ -944,7 +1585,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div>
                                                 <p className="text-white font-semibold text-sm">
-                                                    {isVerified ? 'VERIFIED DEALER' : 'SELLER'}
+                                                    {isVerified ? 'VERIFIED DEALER' : isSellerVerified ? 'VERIFIED SELLER' : isSeller ? 'SELLER' : displayType}
                                                 </p>
                                                 <div className="flex items-center gap-1 text-white/90 text-xs">
                                                     <Star className="w-3 h-3 fill-current" />
@@ -981,10 +1622,10 @@ export default function SettingsPage() {
 
                                         <h3 className="text-lg font-bold text-secondary mb-1">{displayName}</h3>
                                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                                            <Badge variant={isDealer ? 'primary' : 'info'} size="sm">
+                                            <Badge variant={isDealer ? 'primary' : isSeller ? 'success' : 'info'} size="sm">
                                                 {displayType}
                                             </Badge>
-                                            {isVerified && (
+                                            {(isVerified || isSellerVerified) && (
                                                 <span className="text-green-600 text-xs font-medium flex items-center gap-1">
                                                     <Check className="w-3 h-3" />
                                                     Terverifikasi

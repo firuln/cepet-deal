@@ -52,11 +52,10 @@ export async function GET(req: Request) {
             where: { userId: user.id, status: 'SOLD' }
         })
 
-        // Get total views (sum of all listing views if you track views)
-        // For now, we'll calculate based on listing count
+        // Get total views (sum of all listing views)
         const views = await prisma.listing.aggregate({
             where: { userId: user.id },
-            _count: { id: true }
+            _sum: { views: true }
         })
 
         // Get new messages count
@@ -76,11 +75,10 @@ export async function GET(req: Request) {
         })
 
         // Get recent activity counts within date range
-        // @ts-ignore - ListingView model may not exist in all Prisma schemas
-        const recentViews = await (prisma as any).listingView.count({
+        const recentViews = await prisma.viewHistory.count({
             where: {
                 listingId: { in: listingIds },
-                createdAt: { gte: startDate }
+                viewedAt: { gte: startDate }
             }
         })
 
@@ -119,7 +117,7 @@ export async function GET(req: Request) {
                 totalListings,
                 soldListings,
                 newMessages,
-                totalViews: views._count, // You might want to track actual views separately
+                totalViews: views._sum.views || 0,
                 recentViews,
                 recentFavorites,
                 listingsTrend,

@@ -62,6 +62,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if user has finance feature enabled
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { financeEnabled: true }
+    })
+
+    if (!user?.financeEnabled) {
+      return NextResponse.json({
+        error: 'Fitur keuangan belum diaktifkan. Silakan hubungi admin.'
+      }, { status: 403 })
+    }
+
     const body = await req.json()
     const { listingId, paymentMethod, tandaJadi, downPayment, buyerName, buyerAddress, markAsSold = true } = body
 

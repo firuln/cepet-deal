@@ -67,6 +67,7 @@ export async function GET(req: Request) {
                         phone: true,
                         avatar: true,
                         role: true,
+                        financeEnabled: true,
                         _count: {
                             select: {
                                 listings: {
@@ -92,6 +93,8 @@ export async function GET(req: Request) {
             verifiedAt: dealer.verifiedAt,
             createdAt: dealer.createdAt,
             updatedAt: dealer.updatedAt,
+            companyNameEditCount: dealer.companyNameEditCount,
+            companyNameEditedAt: dealer.companyNameEditedAt,
             user: dealer.user,
             activeListingsCount: dealer.user._count?.listings || 0
         }))

@@ -25,6 +25,10 @@ export function formatMileage(km: number): string {
     return `${formatNumber(km)} km`
 }
 
+export function formatPercent(value: number, decimals: number = 1): string {
+    return `${value.toFixed(decimals)}%`
+}
+
 export function slugify(text: string): string {
     return text
         .toLowerCase()

@@ -32,6 +32,8 @@ export async function GET(req: Request) {
                 emailVerified: true,
                 createdAt: true,
                 updatedAt: true,
+                isSellerVerified: true,
+                sellerVerifiedAt: true,
                 dealer: {
                     select: {
                         id: true,
@@ -41,7 +43,9 @@ export async function GET(req: Request) {
                         description: true,
                         logo: true,
                         verified: true,
-                        verifiedAt: true
+                        verifiedAt: true,
+                        companyNameEditCount: true,
+                        companyNameEditedAt: true
                     }
                 },
                 _count: {
@@ -250,6 +254,8 @@ export async function PUT(req: Request) {
                 avatar: true,
                 role: true,
                 updatedAt: true,
+                isSellerVerified: true,
+                sellerVerifiedAt: true,
                 dealer: {
                     select: {
                         id: true,
@@ -259,16 +265,18 @@ export async function PUT(req: Request) {
                         description: true,
                         logo: true,
                         verified: true,
-                        verifiedAt: true
+                        verifiedAt: true,
+                        companyNameEditCount: true,
+                        companyNameEditedAt: true
                     }
                 }
             }
         })
 
-        // Update dealer info if user is a dealer
+        // Update dealer info if user is a dealer (excluding showroomName - use /api/dealer/profile for that)
         if (user.role === 'DEALER') {
             const dealerData: any = {}
-            if (showroomName !== undefined) dealerData.companyName = showroomName || null
+            // Note: showroomName is NOT updated here - it's handled separately via /api/dealer/profile with edit count tracking
             if (showroomAddress !== undefined) dealerData.address = showroomAddress || null
             if (showroomCity !== undefined) dealerData.city = showroomCity || null
 
@@ -301,6 +309,8 @@ export async function PUT(req: Request) {
                         avatar: true,
                         role: true,
                         updatedAt: true,
+                        isSellerVerified: true,
+                        sellerVerifiedAt: true,
                         dealer: {
                             select: {
                                 id: true,
@@ -310,7 +320,9 @@ export async function PUT(req: Request) {
                                 description: true,
                                 logo: true,
                                 verified: true,
-                                verifiedAt: true
+                                verifiedAt: true,
+                                companyNameEditCount: true,
+                                companyNameEditedAt: true
                             }
                         }
                     }

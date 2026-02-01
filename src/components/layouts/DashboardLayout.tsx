@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react'
 import { redirect } from 'next/navigation'
 import { Sidebar } from './Sidebar'
 import { UserRole } from '@prisma/client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Menu, X, Bell, Search, LogOut } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 
@@ -22,6 +22,22 @@ export function DashboardLayout({
     const { data: session, status } = useSession()
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+    const [financeEnabled, setFinanceEnabled] = useState(false)
+
+    useEffect(() => {
+        const fetchFinanceStatus = async () => {
+            try {
+                const response = await fetch('/api/user/finance-status')
+                if (response.ok) {
+                    const data = await response.json()
+                    setFinanceEnabled(data.financeEnabled)
+                }
+            } catch (error) {
+                console.error('Failed to fetch finance status:', error)
+            }
+        }
+        fetchFinanceStatus()
+    }, [])
 
     // Loading state
     if (status === 'loading') {
@@ -74,6 +90,7 @@ export function DashboardLayout({
                     isCollapsed={isSidebarCollapsed}
                     onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                     onClose={() => setIsSidebarOpen(false)}
+                    financeEnabled={financeEnabled}
                 />
             </div>
 

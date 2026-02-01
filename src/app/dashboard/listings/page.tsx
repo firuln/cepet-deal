@@ -70,6 +70,7 @@ export default function MyListingsPage() {
     const [deleteModal, setDeleteModal] = useState<string | null>(null)
     const [receiptModal, setReceiptModal] = useState<Listing | null>(null)
     const [actionLoading, setActionLoading] = useState<string | null>(null)
+    const [financeEnabled, setFinanceEnabled] = useState(false)
 
     useEffect(() => {
         const fetchListings = async () => {
@@ -103,6 +104,17 @@ export default function MyListingsPage() {
             }
         }
         fetchListings()
+    }, [])
+
+    useEffect(() => {
+        const fetchFinanceStatus = async () => {
+            const response = await fetch('/api/user/finance-status')
+            if (response.ok) {
+                const data = await response.json()
+                setFinanceEnabled(data.financeEnabled)
+            }
+        }
+        fetchFinanceStatus()
     }, [])
 
     const filteredListings = listings.filter((listing) => {
@@ -418,10 +430,19 @@ export default function MyListingsPage() {
                                                     )}
 
                                                     {/* Mark as Sold Button - Only for ACTIVE listings */}
-                                                    {listing.canMarkSold ? (
+                                                    {listing.canMarkSold && financeEnabled ? (
                                                         <button
                                                             onClick={() => setReceiptModal(listing)}
                                                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
+                                                        >
+                                                            <FileText className="w-4 h-4" />
+                                                            Buat Kwitansi
+                                                        </button>
+                                                    ) : listing.canMarkSold && !financeEnabled ? (
+                                                        <button
+                                                            disabled
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed"
+                                                            title="Fitur keuangan belum diaktifkan oleh admin"
                                                         >
                                                             <FileText className="w-4 h-4" />
                                                             Buat Kwitansi

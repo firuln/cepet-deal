@@ -19,6 +19,7 @@ import {
     LucideIcon,
     X,
     Home,
+    BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOut } from 'next-auth/react'
@@ -36,6 +37,7 @@ interface SidebarProps {
     isCollapsed?: boolean
     onToggleCollapse?: () => void
     onClose?: () => void
+    financeEnabled?: boolean
 }
 
 const buyerMenuItems: MenuItem[] = [
@@ -51,6 +53,7 @@ const sellerMenuItems: MenuItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Car, label: 'Iklan Saya', href: '/dashboard/listings' },
     { icon: Plus, label: 'Pasang Iklan', href: '/dashboard/listings/used' },
+    { icon: BarChart3, label: 'Laporan Keuangan', href: '/dashboard/reports' },
     { icon: MessageSquare, label: 'Pesan', href: '/dashboard/messages', badge: 5 },
     { icon: Heart, label: 'Favorit', href: '/dashboard/favorites' },
 ]
@@ -71,8 +74,18 @@ const bottomMenuItems: MenuItem[] = [
 ]
 
 
-export function Sidebar({ userRole = 'BUYER', isOpen = false, isCollapsed = false, onToggleCollapse, onClose }: SidebarProps) {
+export function Sidebar({ userRole = 'BUYER', isOpen = false, isCollapsed = false, onToggleCollapse, onClose, financeEnabled = false }: SidebarProps) {
     const pathname = usePathname()
+
+    const getSellerMenuItems = (): MenuItem[] => [
+        { icon: Home, label: 'Home', href: '/' },
+        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+        { icon: Car, label: 'Iklan Saya', href: '/dashboard/listings' },
+        { icon: Plus, label: 'Pasang Iklan', href: '/dashboard/listings/used' },
+        ...(financeEnabled ? [{ icon: BarChart3, label: 'Laporan Keuangan', href: '/dashboard/reports' }] : []),
+        { icon: MessageSquare, label: 'Pesan', href: '/dashboard/messages', badge: 5 },
+        { icon: Heart, label: 'Favorit', href: '/dashboard/favorites' },
+    ]
 
     const getMenuItems = () => {
         switch (userRole) {
@@ -80,7 +93,7 @@ export function Sidebar({ userRole = 'BUYER', isOpen = false, isCollapsed = fals
                 return adminMenuItems
             case 'SELLER':
             case 'DEALER':
-                return sellerMenuItems
+                return getSellerMenuItems()
             default:
                 return buyerMenuItems
         }
